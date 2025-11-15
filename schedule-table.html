@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Schedule Table</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            padding: 30px 40px;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 1200px;
+        }
+
+        .schedule-table thead {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .schedule-table th {
+            padding: 16px 20px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 700;
+            color: #495057;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #dee2e6;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .schedule-table th:first-child {
+            border-top-left-radius: 8px;
+        }
+
+        .schedule-table th:last-child {
+            border-top-right-radius: 8px;
+        }
+
+        .schedule-table tbody tr {
+            background: white;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .schedule-table tbody tr:hover {
+            background: #f8f9ff;
+            transform: scale(1.01);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .schedule-table tbody tr.dragging {
+            opacity: 0.5;
+            background: #e3f2fd;
+        }
+
+        .schedule-table tbody tr.drag-over {
+            border-top: 3px solid #667eea;
+        }
+
+        .schedule-table td {
+            padding: 16px 20px;
+            vertical-align: middle;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .schedule-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-label {
+            padding: 8px 0;
+            font-size: 14px;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .table-label.empty {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .priority-badge-inline {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .priority-high-inline {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .priority-medium-inline {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .priority-low-inline {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .edit-icon-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .edit-icon-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .edit-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-popup-overlay.active {
+            display: flex;
+        }
+
+        .edit-popup {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            max-width: 700px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .edit-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .edit-popup-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+        }
+
+        .edit-popup-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .edit-popup-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .edit-popup-body {
+            padding: 28px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .edit-form-group {
+            margin-bottom: 24px;
+        }
+
+        .edit-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .edit-form-group input,
+        .edit-form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .edit-form-group input:focus,
+        .edit-form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .edit-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .edit-form-row-full {
+            grid-column: 1 / -1;
+        }
+
+        .edit-owners-section {
+            margin-top: 8px;
+        }
+
+        .edit-owners-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .edit-owner-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #e1e5ea;
+            background: #fff;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .edit-owner-item:hover {
+            border-color: #c7cdd6;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+        }
+
+        .edit-owner-item.selected {
+            border-color: #5a7efc;
+            box-shadow: 0 6px 14px rgba(90, 126, 252, 0.2);
+        }
+
+        .edit-owner-radio {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: #5a7efc;
+            flex-shrink: 0;
+        }
+
+        .edit-owner-content {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .edit-owner-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.3;
+        }
+
+        .edit-owner-meta {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .edit-popup-actions {
+            display: flex;
+            gap: 12px;
+            padding: 20px 28px;
+            border-top: 1px solid #e9ecef;
+            background: #f8f9fa;
+            justify-content: flex-end;
+        }
+
+        .duration-edit-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .order-cell {
+            width: 60px;
+            text-align: center;
+            cursor: grab;
+        }
+
+        .order-cell:active {
+            cursor: grabbing;
+        }
+
+        .drag-handle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            margin: 0 auto;
+            color: #6c757d;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .drag-handle:hover {
+            color: #667eea;
+            transform: scale(1.2);
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .table-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: white;
+            color: #212529;
+        }
+
+        .table-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: #f8f9ff;
+        }
+
+        .table-input-small {
+            min-width: 80px;
+        }
+
+        .table-input::-webkit-inner-spin-button,
+        .table-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .table-input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .owners-popup-trigger {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: white;
+            color: #495057;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .owners-popup-trigger:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .owners-popup-trigger:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .owners-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 24px;
+            padding: 0 8px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .owners-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .owners-popup-overlay.active {
+            display: flex;
+        }
+
+        .owners-popup {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            max-width: 520px;
+            width: 90%;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .owners-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .owners-popup-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+        }
+
+        .owners-popup-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .owners-popup-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .owners-popup-body {
+            padding: 24px 28px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .owners-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .owner-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .owner-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: scaleY(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .owner-item:hover {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .owner-item.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .owner-item.selected::before {
+            transform: scaleY(1);
+        }
+
+        .owner-checkbox {
+            width: 22px;
+            height: 22px;
+            margin-right: 16px;
+            cursor: pointer;
+            accent-color: #667eea;
+            flex-shrink: 0;
+        }
+
+        .owner-name {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f2937;
+            letter-spacing: 0.2px;
+        }
+
+        .owner-item.selected .owner-name {
+            color: #667eea;
+        }
+
+        .owners-popup-actions {
+            display: flex;
+            gap: 12px;
+            padding: 20px 28px;
+            border-top: 1px solid #e9ecef;
+            background: #f8f9fa;
+            justify-content: flex-end;
+        }
+
+        .date-time-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .date-input {
+            flex: 1;
+        }
+
+        .time-input {
+            width: 100px;
+        }
+
+        .time-input-hour {
+            width: 80px;
+        }
+
+        .time-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .time-hour-input {
+            width: 70px;
+            padding: 12px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+            -moz-appearance: textfield;
+        }
+
+        .time-hour-input::-webkit-inner-spin-button,
+        .time-hour-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .time-hour-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .time-ampm-select {
+            width: 80px;
+        }
+
+        .table-select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #212529;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .table-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: #f8f9ff;
+        }
+
+        .table-duration-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .table-owners-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .table-owner-chip {
+            min-width: 36px;
+            height: 36px;
+            border-radius: 18px;
+            border: 2px solid #dee2e6;
+            background: white;
+            color: #495057;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 12px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .table-owner-chip:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .table-owner-chip.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .table-owner-chip.selected svg {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            background: white;
+            border-radius: 50%;
+            padding: 2px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .order-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .priority-high {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .priority-medium {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .priority-low {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .actions {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #495057;
+            border: 2px solid #dee2e6;
+        }
+
+        .btn-secondary:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .task-count {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .table-wrapper {
+                padding: 20px;
+            }
+
+            .actions {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Task Schedule</h1>
+            <p>Manage and schedule your tasks with drag-and-drop reordering</p>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="schedule-table" id="scheduleTable">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">Order</th>
+                        <th style="min-width: 300px;">Task</th>
+                        <th style="width: 120px;">Priority</th>
+                        <th style="width: 180px;">Duration</th>
+                        <th style="width: 120px;">Owners</th>
+                        <th style="width: 140px;">Start Date</th>
+                        <th style="width: 140px;">Start Time</th>
+                        <th style="width: 140px;">End Date</th>
+                        <th style="width: 140px;">End Time</th>
+                        <th style="width: 80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Rows will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="actions">
+            <div class="task-count">
+                <span id="taskCount">0</span> task(s) scheduled
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="addNewRow()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Add Task
+                </button>
+                <button class="btn btn-primary" onclick="saveSchedule()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save Schedule
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data
+        const sampleMembers = [
+            { id: 1, name: 'John Doe', type: 'person' },
+            { id: 2, name: 'Jane Smith', type: 'person' },
+            { id: 3, name: 'Tech Corp', type: 'entity' },
+            { id: 4, name: 'Design Studio', type: 'entity' },
+        ];
+
+        let tasks = [
+            {
+                id: 1,
+                task: 'Setup event infrastructure',
+                priority: 'high',
+                duration: { quantity: 2, unit: 'hours' },
+                owners: [1],
+                start_date: '',
+                start_time: '',
+                end_date: '',
+                end_time: '',
+                order: 1
+            },
+            {
+                id: 2,
+                task: 'Coordinate with vendors',
+                priority: 'medium',
+                duration: { quantity: 1, unit: 'days' },
+                owners: [2, 3],
+                start_date: '',
+                start_time: '',
+                end_date: '',
+                end_time: '',
+                order: 2
+            },
+            {
+                id: 3,
+                task: 'Finalize guest list',
+                priority: 'low',
+                duration: { quantity: 3, unit: 'hours' },
+                owners: [1],
+                start_date: '',
+                start_time: '',
+                end_date: '',
+                end_time: '',
+                order: 3
+            }
+        ];
+
+        let currentTaskIdForOwners = null;
+        let currentTaskIdForEdit = null;
+
+        let draggedRow = null;
+        let draggedOverRow = null;
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            tasks.sort((a, b) => a.order - b.order);
+
+            tasks.forEach((task, index) => {
+                const row = document.createElement('tr');
+                row.draggable = true;
+                row.dataset.taskId = task.id;
+                row.dataset.order = task.order;
+
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('drop', handleDrop);
+                row.addEventListener('dragend', handleDragEnd);
+
+                const priorityClass = `priority-${task.priority || 'medium'}-inline`;
+                const priorityText = (task.priority || 'medium').charAt(0).toUpperCase() + (task.priority || 'medium').slice(1);
+                const durationText = task.duration?.quantity && task.duration?.unit 
+                    ? `${task.duration.quantity} ${task.duration.unit}` 
+                    : 'Not set';
+                const ownersText = task.owners && task.owners.length > 0 
+                    ? task.owners.map(ownerId => {
+                        const member = sampleMembers.find(m => m.id === ownerId);
+                        return member ? member.name : '';
+                    }).filter(Boolean).join(', ')
+                    : 'None';
+                const startTimeText = task.start_time 
+                    ? (() => {
+                        const hour24 = parseInt(task.start_time.split(':')[0]);
+                        const hour12 = hour24 % 12 || 12;
+                        const ampm = hour24 < 12 ? 'AM' : 'PM';
+                        return `${hour12} ${ampm}`;
+                    })()
+                    : 'Not set';
+                const endTimeText = task.end_time 
+                    ? (() => {
+                        const hour24 = parseInt(task.end_time.split(':')[0]);
+                        const hour12 = hour24 % 12 || 12;
+                        const ampm = hour24 < 12 ? 'AM' : 'PM';
+                        return `${hour12} ${ampm}`;
+                    })()
+                    : 'Not set';
+
+                row.innerHTML = `
+                    <td class="order-cell">
+                        <div class="drag-handle">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="9" cy="12" r="1"></circle>
+                                <circle cx="9" cy="5" r="1"></circle>
+                                <circle cx="9" cy="19" r="1"></circle>
+                                <circle cx="15" cy="12" r="1"></circle>
+                                <circle cx="15" cy="5" r="1"></circle>
+                                <circle cx="15" cy="19" r="1"></circle>
+                            </svg>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.task ? '' : 'empty'}">${task.task || 'Not set'}</div>
+                    </td>
+                    <td>
+                        <span class="priority-badge-inline ${priorityClass}">${priorityText}</span>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.duration?.quantity ? '' : 'empty'}">${durationText}</div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.owners && task.owners.length > 0 ? '' : 'empty'}">${ownersText}</div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.start_date ? '' : 'empty'}">${task.start_date || 'Not set'}</div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.start_time ? '' : 'empty'}">${startTimeText}</div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.end_date ? '' : 'empty'}">${task.end_date || 'Not set'}</div>
+                    </td>
+                    <td>
+                        <div class="table-label ${task.end_time ? '' : 'empty'}">${endTimeText}</div>
+                    </td>
+                    <td>
+                        <button
+                            type="button"
+                            onclick="openEditPopup(${task.id})"
+                            class="edit-icon-btn"
+                            title="Edit task"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+
+            updateTaskCount();
+        }
+
+        function updateTask(taskId, field, value) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task[field] = value;
+            }
+        }
+
+        function updateTaskDuration(taskId, field, value) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                if (!task.duration) {
+                    task.duration = {};
+                }
+                if (field === 'quantity') {
+                    task.duration.quantity = value ? parseFloat(value) : null;
+                } else {
+                    task.duration.unit = value;
+                }
+            }
+        }
+
+        function updateTaskTime(taskId, field, hour, ampm) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && hour) {
+                let hour24 = parseInt(hour);
+                if (ampm === 'PM' && hour24 !== 12) {
+                    hour24 += 12;
+                } else if (ampm === 'AM' && hour24 === 12) {
+                    hour24 = 0;
+                }
+                task[field] = hour24.toString().padStart(2, '0') + ':00';
+            } else if (task) {
+                task[field] = '';
+            }
+        }
+
+        function openOwnersPopup(taskId) {
+            currentTaskIdForOwners = taskId;
+            const overlay = document.getElementById('ownersPopupOverlay');
+            overlay.classList.add('active');
+            renderOwnersPopup();
+        }
+
+        function closeOwnersPopup() {
+            const overlay = document.getElementById('ownersPopupOverlay');
+            overlay.classList.remove('active');
+            currentTaskIdForOwners = null;
+        }
+
+        function renderOwnersPopup() {
+            if (!currentTaskIdForOwners) return;
+            
+            const task = tasks.find(t => t.id === currentTaskIdForOwners);
+            if (!task) return;
+
+            const popupContent = document.getElementById('ownersPopupContent');
+            popupContent.innerHTML = `
+                <div class="owners-popup-header">
+                    <h3>Select Owners</h3>
+                    <button class="owners-popup-close" onclick="closeOwnersPopup()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="owners-popup-body">
+                    <div class="owners-list">
+                        ${sampleMembers.map(member => {
+                            const isSelected = task.owners.includes(member.id);
+                            return `
+                                <div class="owner-item ${isSelected ? 'selected' : ''}" onclick="toggleOwnerInPopup(${member.id})">
+                                    <input
+                                        type="checkbox"
+                                        class="owner-checkbox"
+                                        ${isSelected ? 'checked' : ''}
+                                        onchange="toggleOwnerInPopup(${member.id})"
+                                    />
+                                    <span class="owner-name">${member.name}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                <div class="owners-popup-actions">
+                    <button class="btn btn-secondary" onclick="closeOwnersPopup()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveOwnersSelection()">Save</button>
+                </div>
+            `;
+        }
+
+        function toggleOwnerInPopup(memberId) {
+            if (!currentTaskIdForOwners) return;
+            
+            const task = tasks.find(t => t.id === currentTaskIdForOwners);
+            if (!task) return;
+
+            if (!task.owners) {
+                task.owners = [];
+            }
+            const index = task.owners.indexOf(memberId);
+            if (index > -1) {
+                task.owners.splice(index, 1);
+            } else {
+                task.owners.push(memberId);
+            }
+            renderOwnersPopup();
+        }
+
+        function saveOwnersSelection() {
+            renderTable();
+            closeOwnersPopup();
+        }
+
+        function openEditPopup(taskId) {
+            currentTaskIdForEdit = taskId;
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                editOwners = task.owners ? [...task.owners] : [];
+            }
+            const overlay = document.getElementById('editPopupOverlay');
+            overlay.classList.add('active');
+            renderEditPopup();
+        }
+
+        function closeEditPopup() {
+            const overlay = document.getElementById('editPopupOverlay');
+            overlay.classList.remove('active');
+            currentTaskIdForEdit = null;
+        }
+
+        function renderEditPopup() {
+            if (!currentTaskIdForEdit) return;
+            
+            const task = tasks.find(t => t.id === currentTaskIdForEdit);
+            if (!task) return;
+
+            const startHour = task.start_time ? (parseInt(task.start_time.split(':')[0]) % 12 || 12) : '';
+            const startAMPM = task.start_time && parseInt(task.start_time.split(':')[0]) >= 12 ? 'PM' : 'AM';
+            const endHour = task.end_time ? (parseInt(task.end_time.split(':')[0]) % 12 || 12) : '';
+            const endAMPM = task.end_time && parseInt(task.end_time.split(':')[0]) >= 12 ? 'PM' : 'AM';
+
+            const popupContent = document.getElementById('editPopupContent');
+            popupContent.innerHTML = `
+                <div class="edit-popup-header">
+                    <h3>Edit Task</h3>
+                    <button class="edit-popup-close" onclick="closeEditPopup()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="edit-popup-body">
+                    <div class="edit-form-group edit-form-row-full">
+                        <label>Task</label>
+                        <input
+                            type="text"
+                            value="${task.task || ''}"
+                            id="edit_task"
+                            placeholder="Enter task title"
+                        />
+                    </div>
+                    <div class="edit-form-row">
+                        <div class="edit-form-group">
+                            <label>Priority</label>
+                            <select id="edit_priority">
+                                <option value="high" ${task.priority === 'high' ? 'selected' : ''}>High</option>
+                                <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                                <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Low</option>
+                            </select>
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Duration</label>
+                            <div class="duration-edit-group">
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value="${task.duration?.quantity || ''}"
+                                    id="edit_duration_quantity"
+                                    placeholder="Quantity"
+                                />
+                                <select id="edit_duration_unit">
+                                    <option value="hours" ${task.duration?.unit === 'hours' ? 'selected' : ''}>hours</option>
+                                    <option value="days" ${task.duration?.unit === 'days' ? 'selected' : ''}>days</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edit-form-group">
+                        <label>Owners</label>
+                        <div class="edit-owners-section">
+                            <div class="edit-owners-list">
+                                ${sampleMembers.map(member => {
+                                    const isSelected = task.owners && task.owners.includes(member.id);
+                                    return `
+                                        <div class="edit-owner-item ${isSelected ? 'selected' : ''}" onclick="toggleEditOwner(${member.id})">
+                                            <input
+                                                type="checkbox"
+                                                class="edit-owner-radio"
+                                                ${isSelected ? 'checked' : ''}
+                                                onchange="toggleEditOwner(${member.id})"
+                                            />
+                                            <div class="edit-owner-content">
+                                                <span class="edit-owner-name">${member.name}</span>
+                                                <span class="edit-owner-meta">${member.type === 'person' ? 'Person' : 'Entity'}</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edit-form-row">
+                        <div class="edit-form-group">
+                            <label>Start Date</label>
+                            <input
+                                type="date"
+                                value="${task.start_date || ''}"
+                                id="edit_start_date"
+                            />
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Start Time</label>
+                            <div class="time-input-group">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="12"
+                                    value="${startHour}"
+                                    id="edit_start_hour"
+                                    placeholder="Hour"
+                                    class="time-hour-input"
+                                />
+                                <select id="edit_start_ampm" class="time-ampm-select">
+                                    <option value="AM" ${startAMPM === 'AM' ? 'selected' : ''}>AM</option>
+                                    <option value="PM" ${startAMPM === 'PM' ? 'selected' : ''}>PM</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edit-form-row">
+                        <div class="edit-form-group">
+                            <label>End Date</label>
+                            <input
+                                type="date"
+                                value="${task.end_date || ''}"
+                                id="edit_end_date"
+                            />
+                        </div>
+                        <div class="edit-form-group">
+                            <label>End Time</label>
+                            <div class="time-input-group">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="12"
+                                    value="${endHour}"
+                                    id="edit_end_hour"
+                                    placeholder="Hour"
+                                    class="time-hour-input"
+                                />
+                                <select id="edit_end_ampm" class="time-ampm-select">
+                                    <option value="AM" ${endAMPM === 'AM' ? 'selected' : ''}>AM</option>
+                                    <option value="PM" ${endAMPM === 'PM' ? 'selected' : ''}>PM</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="edit-popup-actions">
+                    <button class="btn btn-secondary" onclick="closeEditPopup()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveEditTask()">Save Changes</button>
+                </div>
+            `;
+        }
+
+        let editOwners = [];
+
+        function toggleEditOwner(memberId) {
+            const index = editOwners.indexOf(memberId);
+            if (index > -1) {
+                editOwners.splice(index, 1);
+            } else {
+                editOwners.push(memberId);
+            }
+            renderEditPopup();
+        }
+
+        function saveEditTask() {
+            if (!currentTaskIdForEdit) return;
+            
+            const task = tasks.find(t => t.id === currentTaskIdForEdit);
+            if (!task) return;
+
+            task.task = document.getElementById('edit_task').value;
+            task.priority = document.getElementById('edit_priority').value;
+            task.duration = {
+                quantity: document.getElementById('edit_duration_quantity').value ? parseFloat(document.getElementById('edit_duration_quantity').value) : null,
+                unit: document.getElementById('edit_duration_unit').value
+            };
+            task.owners = [...editOwners];
+            task.start_date = document.getElementById('edit_start_date').value;
+            
+            const startHour = document.getElementById('edit_start_hour').value;
+            const startAMPM = document.getElementById('edit_start_ampm').value;
+            if (startHour) {
+                let hour24 = parseInt(startHour);
+                if (startAMPM === 'PM' && hour24 !== 12) {
+                    hour24 += 12;
+                } else if (startAMPM === 'AM' && hour24 === 12) {
+                    hour24 = 0;
+                }
+                task.start_time = hour24.toString().padStart(2, '0') + ':00';
+            } else {
+                task.start_time = '';
+            }
+
+            task.end_date = document.getElementById('edit_end_date').value;
+            
+            const endHour = document.getElementById('edit_end_hour').value;
+            const endAMPM = document.getElementById('edit_end_ampm').value;
+            if (endHour) {
+                let hour24 = parseInt(endHour);
+                if (endAMPM === 'PM' && hour24 !== 12) {
+                    hour24 += 12;
+                } else if (endAMPM === 'AM' && hour24 === 12) {
+                    hour24 = 0;
+                }
+                task.end_time = hour24.toString().padStart(2, '0') + ':00';
+            } else {
+                task.end_time = '';
+            }
+
+            renderTable();
+            closeEditPopup();
+        }
+
+        function handleDragStart(e) {
+            draggedRow = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.outerHTML);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            
+            if (draggedOverRow && draggedOverRow !== this) {
+                draggedOverRow.classList.remove('drag-over');
+            }
+            
+            if (this !== draggedRow) {
+                this.classList.add('drag-over');
+                draggedOverRow = this;
+            }
+            
+            return false;
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            if (draggedRow !== this) {
+                const draggedTaskId = parseInt(draggedRow.dataset.taskId);
+                const targetTaskId = parseInt(this.dataset.taskId);
+                
+                const draggedTask = tasks.find(t => t.id === draggedTaskId);
+                const targetTask = tasks.find(t => t.id === targetTaskId);
+                
+                if (draggedTask && targetTask) {
+                    const tempOrder = draggedTask.order;
+                    draggedTask.order = targetTask.order;
+                    targetTask.order = tempOrder;
+                }
+            }
+
+            this.classList.remove('drag-over');
+            renderTable();
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            if (draggedOverRow) {
+                draggedOverRow.classList.remove('drag-over');
+            }
+            draggedRow = null;
+            draggedOverRow = null;
+        }
+
+        function addNewRow() {
+            const newTask = {
+                id: Date.now(),
+                task: '',
+                priority: 'medium',
+                duration: { quantity: null, unit: 'hours' },
+                owners: [],
+                start_date_time: '',
+                end_date_time: '',
+                order: tasks.length + 1
+            };
+            tasks.push(newTask);
+            renderTable();
+        }
+
+        function saveSchedule() {
+            console.log('Saving schedule:', tasks);
+            alert(`Schedule saved! ${tasks.length} task(s) scheduled.`);
+        }
+
+        function updateTaskCount() {
+            document.getElementById('taskCount').textContent = tasks.length;
+        }
+
+        // Initialize table on load
+        renderTable();
+
+        // Close popup when clicking outside
+        document.getElementById('ownersPopupOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeOwnersPopup();
+            }
+        });
+
+        document.getElementById('editPopupOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditPopup();
+            }
+        });
+    </script>
+
+    <!-- Owners Popup -->
+    <div class="owners-popup-overlay" id="ownersPopupOverlay">
+        <div class="owners-popup" id="ownersPopupContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Edit Task Popup -->
+    <div class="edit-popup-overlay" id="editPopupOverlay">
+        <div class="edit-popup" id="editPopupContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</body>
+</html>
+

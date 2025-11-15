@@ -1,0 +1,37 @@
+/* Base App Styles - Theme agnostic */
+
+.App {
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+/* Ensure proper table layout */
+.table-container {
+  display: block;
+}
+
+.table-header,
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 80px;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .table-header > div,
+  .table-row > div {
+    padding: 0.5rem 0;
+  }
+}
