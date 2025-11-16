@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Event Management LLM Service - Lambda deployment template
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        GEMINI_API_KEY: !Ref GeminiAPIKey
+
+Resources:
+  LLMServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      CodeUri: .
+      Runtime: python3.11
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          GEMINI_API_KEY: !Ref GeminiAPIKey
+          GEMINI_MODEL: gemini-flash-latest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+  LLMServiceAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Parameters:
+  GeminiAPIKey:
+    Type: String
+    NoEcho: true
+    Description: Google Gemini API Key
+    Default: ""
+
+Outputs:
+  LLMServiceURL:
+    Description: "LLM Service API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  LLMServiceFunctionArn:
+    Description: "LLM Service Lambda Function ARN"
+    Value: !GetAtt LLMServiceFunction.Arn
+

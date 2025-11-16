@@ -1,0 +1,38 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: event-tracking-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/event_tracking_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+# Event Planning Service Configuration
+planning-service:
+  url: ${PLANNING_SERVICE_URL:http://localhost:8080}
+
+# API Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.vibeworks.tracking: DEBUG
+    org.springframework.web: INFO
+

@@ -1,0 +1,80 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # AI Service routes
+        - id: ai-service
+          uri: http://localhost:8001
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=2
+        
+        # Event Planning Service routes
+        - id: event-planning-service
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/planning/**, /api/events/**, /api/schedules/**
+          filters:
+            - StripPrefix=1
+        
+        # Event Tracking Service routes
+        - id: event-tracking-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/tracking/**
+          filters:
+            - StripPrefix=1
+        
+        # Health check routes
+        - id: ai-service-health
+          uri: http://localhost:8001
+          predicates:
+            - Path=/health/ai
+          filters:
+            - RewritePath=/health/ai, /health
+        
+        - id: planning-service-health
+          uri: http://localhost:8080
+          predicates:
+            - Path=/health/planning
+          filters:
+            - RewritePath=/health/planning, /health
+        
+        - id: tracking-service-health
+          uri: http://localhost:8081
+          predicates:
+            - Path=/health/tracking
+          filters:
+            - RewritePath=/health/tracking, /health
+      
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: INFO
+

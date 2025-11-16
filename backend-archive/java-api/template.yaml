@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Event Management API - Lambda deployment template
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: java17
+    Environment:
+      Variables:
+        SPRING_PROFILES_ACTIVE: prod
+
+Resources:
+  EventManagementAPI:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: com.eventmanagement.EventManagementApplication::handleRequest
+      CodeUri: target/event-management-api-1.0.0.jar
+      Environment:
+        Variables:
+          DB_URL: !Ref DatabaseURL
+          DB_USERNAME: !Ref DatabaseUsername
+          DB_PASSWORD: !Ref DatabasePassword
+          LLM_SERVICE_URL: !Ref LLMServiceURL
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref LambdaSubnets
+
+  EventManagementAPIGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Parameters:
+  DatabaseURL:
+    Type: String
+    Description: PostgreSQL database URL
+  DatabaseUsername:
+    Type: String
+    Description: Database username
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    Description: Database password
+  LLMServiceURL:
+    Type: String
+    Description: LLM service Lambda function URL
+  LambdaSecurityGroup:
+    Type: String
+    Description: Security group for Lambda
+  LambdaSubnets:
+    Type: CommaDelimitedList
+    Description: Subnets for Lambda
+
+Outputs:
+  EventManagementAPI:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
