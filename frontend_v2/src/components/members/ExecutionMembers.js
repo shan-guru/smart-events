@@ -7,8 +7,18 @@ import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
 import EmptyState from '../ui/EmptyState';
 import Tabs from '../ui/Tabs';
+import memberService from '../../services/memberService';
+import useToast from '../../hooks/useToast';
+import { useLabels } from '../../contexts/LabelsContext';
 
-const ExecutionMembers = ({ members, setMembers }) => {
+const ExecutionMembers = ({ members, setMembers, onMembersChange, showSuccess: parentShowSuccess, showError: parentShowError }) => {
+  // Use labels from context
+  const { getLabel } = useLabels();
+  
+  // Use parent toast functions if provided, otherwise use local hook
+  const localToast = useToast();
+  const showSuccess = parentShowSuccess || localToast.showSuccess;
+  const showError = parentShowError || localToast.showError;
   // Use props if provided, otherwise use local state
   const [localMembers, setLocalMembers] = useState([]);
   const membersList = setMembers ? members : localMembers;
@@ -19,6 +29,10 @@ const ExecutionMembers = ({ members, setMembers }) => {
   const [pastedData, setPastedData] = useState('');
   const [importError, setImportError] = useState(null);
   const [importSuccess, setImportSuccess] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState(null);
   const fileInputRef = useRef(null);
   const [memberType, setMemberType] = useState('person');
   const [formData, setFormData] = useState({
@@ -71,66 +85,125 @@ const ExecutionMembers = ({ members, setMembers }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('Form submitted, editingMemberId:', editingMemberId);
     
     // Validation
     if (memberType === 'person') {
       if (!formData.firstName || !formData.lastName || !formData.email) {
-        alert('Please fill in all required fields (First Name, Last Name, Email)');
+        showError(getLabel('validation.required.person'));
         return;
       }
     } else {
       if (!formData.name || !formData.email) {
-        alert('Please fill in all required fields (Name, Email)');
+        showError(getLabel('validation.required.entity'));
         return;
       }
     }
 
-    const newMember = {
-      id: Date.now(),
-      type: memberType,
-      ...(memberType === 'person'
-        ? {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-          }
-        : {
-            name: formData.name,
-            offline: formData.offline || false,
-          }),
-      specializedIn: formData.specializedIn,
-      experience: formData.experience || '',
-      address: formData.address,
-      phone: formData.phone,
-      whatsapp: formData.usePhoneForWhatsApp ? formData.phone : (formData.whatsapp || ''),
-      email: formData.email,
-    };
+    setIsSubmitting(true);
+    try {
+      const memberData = {
+        type: memberType,
+        ...(memberType === 'person'
+          ? {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+            }
+          : {
+              name: formData.name,
+              offline: formData.offline || false,
+            }),
+        specializedIn: formData.specializedIn || null,
+        experience: formData.experience || null,
+        address: formData.address || null,
+        phone: formData.phone || null,
+        whatsapp: formData.usePhoneForWhatsApp ? formData.phone : (formData.whatsapp || null),
+        email: formData.email,
+      };
 
-    setMembersList([...membersList, newMember]);
-    setShowForm(false);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      name: '',
-      offline: false,
-      specializedIn: '',
-      experience: '',
-      address: '',
-      phone: '',
-      whatsapp: '',
-      usePhoneForWhatsApp: false,
-      email: '',
-    });
+      console.log('Member data to save:', memberData);
+      console.log('Is update operation:', !!editingMemberId);
+
+      if (editingMemberId) {
+        // Update existing member
+        console.log('Calling updateMember with id:', editingMemberId);
+        const result = await memberService.updateMember(editingMemberId, memberData);
+        console.log('Update result:', result);
+        showSuccess(getLabel('success.memberUpdated'));
+      } else {
+        // Create new member
+        console.log('Calling createMember');
+        const result = await memberService.createMember(memberData);
+        console.log('Create result:', result);
+        showSuccess(getLabel('success.memberCreated'));
+      }
+      
+      setShowForm(false);
+      setEditingMemberId(null);
+      setFormData({
+        firstName: '',
+        lastName: '',
+        name: '',
+        offline: false,
+        specializedIn: '',
+        experience: '',
+        address: '',
+        phone: '',
+        whatsapp: '',
+        usePhoneForWhatsApp: false,
+        email: '',
+      });
+      
+      // Refresh members list
+      if (onMembersChange) {
+        onMembersChange();
+      }
+    } catch (error) {
+      console.error('Failed to save member:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        editingMemberId,
+        memberData: {
+          type: memberType,
+          email: formData.email,
+        }
+      });
+      const errorMessage = error.message || (editingMemberId ? getLabel('error.updateMember') : getLabel('error.createMember'));
+      showError(errorMessage);
+      // Don't close form on error so user can fix and retry
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this member?')) {
-      setMembersList(membersList.filter((m) => m.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this member?')) {
+      return;
+    }
+
+    setIsDeleting(id);
+    try {
+      await memberService.deleteMember(id);
+      showSuccess(getLabel('success.memberDeleted'));
+      
+      // Refresh members list
+      if (onMembersChange) {
+        onMembersChange();
+      }
+    } catch (error) {
+      console.error('Failed to delete member:', error);
+      showError(error.message || getLabel('error.deleteMember'));
+    } finally {
+      setIsDeleting(null);
     }
   };
 
   const handleEdit = (member) => {
+    setEditingMemberId(member.id);
     setMemberType(member.type);
     setFormData({
       firstName: member.firstName || '',
@@ -146,7 +219,34 @@ const ExecutionMembers = ({ members, setMembers }) => {
       email: member.email || '',
     });
     setShowForm(true);
-    setMembersList(membersList.filter((m) => m.id !== member.id));
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setEditingMemberId(null);
+    setFormData({
+      firstName: '',
+      lastName: '',
+      name: '',
+      offline: false,
+      specializedIn: '',
+      experience: '',
+      address: '',
+      phone: '',
+      whatsapp: '',
+      usePhoneForWhatsApp: false,
+      email: '',
+    });
+  };
+
+  // Get member name for display
+  const getMemberDisplayName = (member) => {
+    if (member.type === 'person') {
+      return `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Person';
+    }
+    return member.name || 'Unnamed Entity';
   };
 
   // Map imported data to member structure
@@ -356,124 +456,98 @@ const ExecutionMembers = ({ members, setMembers }) => {
 
     setImportError(null);
     setImportSuccess(null);
+    setIsImporting(true);
 
     try {
       const fileExtension = validateFileFormat(file);
-      let rawData = [];
-
-      if (fileExtension === 'json') {
-        const text = await file.text();
-        rawData = parseJSON(text);
-      } else if (fileExtension === 'csv') {
-        const text = await file.text();
-        rawData = parseCSV(text);
-      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        rawData = await parseExcel(file);
+      
+      // Use backend import API
+      const response = await memberService.importMembers(file);
+      
+      if (response.failed > 0 && response.errors && response.errors.length > 0) {
+        const errorMessages = response.errors.slice(0, 10).join('\n');
+        const warningMsg = getLabel('success.importedPartial')
+          .replace('{0}', response.failed)
+          .replace('{1}', response.successful) + `\n\nErrors:\n${errorMessages}${response.errors.length > 10 ? `\n... and ${response.errors.length - 10} more errors` : ''}`;
+        setImportError(warningMsg);
+      } else {
+        setImportSuccess(getLabel('success.imported').replace('{0}', response.successful));
       }
-
-      if (rawData.length === 0) {
-        throw new Error('No data found in the file.');
+      
+      // Refresh members list
+      if (onMembersChange) {
+        onMembersChange();
       }
-
-      const validationErrors = [];
-      const validMembers = [];
-
-      rawData.forEach((member, index) => {
-        const errors = validateMember(member, index);
-        if (errors.length > 0) {
-          validationErrors.push(...errors);
-        } else {
-          validMembers.push(member);
-        }
-      });
-
-      if (validMembers.length === 0) {
-        const errorMsg = validationErrors.length > 0
-          ? `Validation failed:\n${validationErrors.slice(0, 10).join('\n')}${validationErrors.length > 10 ? `\n... and ${validationErrors.length - 10} more errors` : ''}`
-          : 'No valid members found after validation.';
-        throw new Error(errorMsg);
-      }
-
-      if (validationErrors.length > 0) {
-        const warningMsg = `${validationErrors.length} validation error(s) found. ${validMembers.length} valid member(s) will be imported.\n\nFirst few errors:\n${validationErrors.slice(0, 5).join('\n')}`;
-        if (!window.confirm(warningMsg + '\n\nContinue with import?')) {
-          return;
-        }
-      }
-
-      setMembersList([...membersList, ...validMembers]);
-      setImportSuccess(`Successfully imported ${validMembers.length} member(s).${validationErrors.length > 0 ? ` (${validationErrors.length} error(s) were skipped)` : ''}`);
+      
       setShowImport(false);
       
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     } catch (error) {
-      setImportError(error.message || 'Failed to import file. Please check the file format.');
+      console.error('Import failed:', error);
+      setImportError(error.message || getLabel('error.importFile'));
+    } finally {
+      setIsImporting(false);
     }
   };
 
   // Handle pasted data import
   const handlePasteImport = async () => {
-    if (!pastedData.trim()) {
-      setImportError('Please paste some data first.');
-      return;
-    }
+      if (!pastedData.trim()) {
+        setImportError(getLabel('validation.pasteDataRequired'));
+        return;
+      }
 
     setImportError(null);
     setImportSuccess(null);
+    setIsImporting(true);
 
     try {
-      let rawData = [];
+      // Determine if it's JSON or CSV
+      let isJSON = false;
+      let fileContent = pastedData;
       
-      // Try JSON first
       try {
-        rawData = parseJSON(pastedData);
-      } catch (jsonError) {
-        // If JSON fails, try CSV
-        try {
-          rawData = parseCSV(pastedData);
-        } catch (csvError) {
-          throw new Error('Unable to parse pasted data. Please ensure it is valid JSON or CSV format.');
-        }
+        JSON.parse(pastedData);
+        isJSON = true;
+      } catch (e) {
+        isJSON = false;
       }
 
-      if (rawData.length === 0) {
-        throw new Error('No data found in pasted content.');
-      }
-
-      const validationErrors = [];
-      const validMembers = [];
-
-      rawData.forEach((member, index) => {
-        const errors = validateMember(member, index);
-        if (errors.length > 0) {
-          validationErrors.push(...errors);
-        } else {
-          validMembers.push(member);
-        }
+      // Create a blob and file from pasted data
+      const blob = new Blob([pastedData], { 
+        type: isJSON ? 'application/json' : 'text/csv' 
+      });
+      const file = new File([blob], `import.${isJSON ? 'json' : 'csv'}`, {
+        type: isJSON ? 'application/json' : 'text/csv'
       });
 
-      if (validMembers.length === 0) {
-        const errorMsg = validationErrors.length > 0
-          ? `Validation failed:\n${validationErrors.slice(0, 10).join('\n')}${validationErrors.length > 10 ? `\n... and ${validationErrors.length - 10} more errors` : ''}`
-          : 'No valid members found after validation.';
-        throw new Error(errorMsg);
+      // Use backend import API
+      const response = await memberService.importMembers(file);
+      
+      if (response.failed > 0 && response.errors && response.errors.length > 0) {
+        const errorMessages = response.errors.slice(0, 10).join('\n');
+        const warningMsg = getLabel('success.importedPartial')
+          .replace('{0}', response.failed)
+          .replace('{1}', response.successful) + `\n\nErrors:\n${errorMessages}${response.errors.length > 10 ? `\n... and ${response.errors.length - 10} more errors` : ''}`;
+        setImportError(warningMsg);
+      } else {
+        setImportSuccess(getLabel('success.imported').replace('{0}', response.successful));
       }
-
-      if (validationErrors.length > 0) {
-        const warningMsg = `${validationErrors.length} validation error(s) found. ${validMembers.length} valid member(s) will be imported.\n\nFirst few errors:\n${validationErrors.slice(0, 5).join('\n')}`;
-        if (!window.confirm(warningMsg + '\n\nContinue with import?')) {
-          return;
-        }
+      
+      // Refresh members list
+      if (onMembersChange) {
+        onMembersChange();
       }
-
-      setMembersList([...membersList, ...validMembers]);
-      setImportSuccess(`Successfully imported ${validMembers.length} member(s).${validationErrors.length > 0 ? ` (${validationErrors.length} error(s) were skipped)` : ''}`);
+      
       setPastedData('');
       setShowImport(false);
     } catch (error) {
-      setImportError(error.message || 'Failed to import pasted data. Please check the format.');
+      console.error('Import failed:', error);
+      setImportError(error.message || getLabel('error.importPaste'));
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -484,14 +558,26 @@ const ExecutionMembers = ({ members, setMembers }) => {
       {/* Header Section */}
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div className="section-title">Core Members</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="section-title">{getLabel('section.coreMembers')}</div>
             <Badge variant="primary">{membersList.length}</Badge>
+            {editingMemberId && (
+              <Badge variant="warning" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                {getLabel('badge.editingMember')}
+              </Badge>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Button
               variant="secondary"
               onClick={() => {
+                if (showForm && editingMemberId) {
+                  handleCancelForm();
+                }
                 setShowImport(!showImport);
                 setImportMode('file');
                 setImportError(null);
@@ -501,39 +587,31 @@ const ExecutionMembers = ({ members, setMembers }) => {
                   fileInputRef.current.value = '';
                 }
               }}
+              disabled={showForm && editingMemberId}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
-              {showImport ? 'Cancel Import' : 'Import'}
+              {showImport ? getLabel('button.cancelImport') : getLabel('button.import')}
             </Button>
             <Button
               onClick={() => {
-                setShowForm(!showForm);
                 if (showForm) {
-                  setFormData({
-                    firstName: '',
-                    lastName: '',
-                    name: '',
-                    offline: false,
-                    specializedIn: '',
-                    experience: '',
-                    address: '',
-                    phone: '',
-                    whatsapp: '',
-                    usePhoneForWhatsApp: false,
-                    email: '',
-                  });
+                  handleCancelForm();
+                } else {
+                  setShowForm(true);
+                  setEditingMemberId(null);
                 }
               }}
+              disabled={showImport}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}>
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              {showForm ? 'Cancel' : '+ Add Member'}
+              {showForm ? getLabel('button.cancel') : getLabel('button.addMember')}
             </Button>
           </div>
         </div>
@@ -541,15 +619,15 @@ const ExecutionMembers = ({ members, setMembers }) => {
         {/* Import Section */}
         {showImport && (
           <Card style={{ marginBottom: '1.5rem', background: 'var(--bg-secondary)' }}>
-            <div className="section-title" style={{ marginBottom: '1rem' }}>Import Members</div>
+            <div className="section-title" style={{ marginBottom: '1rem' }}>{getLabel('section.importMembers')}</div>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              Import members from a file or paste data directly
+              {getLabel('import.description')}
             </p>
 
             <Tabs
               tabs={[
-                { id: 'file', label: 'Upload File' },
-                { id: 'paste', label: 'Paste Data' },
+                { id: 'file', label: getLabel('import.uploadFile') },
+                { id: 'paste', label: getLabel('import.pasteData') },
               ]}
               activeTab={importMode}
               onTabChange={(tab) => {
@@ -604,15 +682,15 @@ const ExecutionMembers = ({ members, setMembers }) => {
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                   </svg>
-                  <strong style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Click to upload</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>JSON, CSV, or Excel files</span>
+                  <strong style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{getLabel('import.clickToUpload')}</strong>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{getLabel('import.fileTypes')}</span>
                 </label>
               </div>
             ) : (
               <div style={{ marginTop: '1.5rem' }}>
                 <Input
                   type="textarea"
-                  label="Paste JSON or CSV Data"
+                  label={getLabel('placeholder.pasteData')}
                   placeholder={`Paste JSON data:
 [
   {
@@ -633,15 +711,15 @@ person,John,Doe,john@example.com`}
                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   <Button
                     onClick={handlePasteImport}
-                    disabled={!pastedData.trim()}
+                    disabled={!pastedData.trim() || isImporting}
                   >
-                    Import Pasted Data
+                    {isImporting ? getLabel('button.importing') : getLabel('button.importPastedData')}
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => setPastedData('')}
                   >
-                    Clear
+                    {getLabel('button.clear')}
                   </Button>
                 </div>
 
@@ -659,7 +737,7 @@ person,John,Doe,john@example.com`}
                     fontSize: '1rem',
                     fontWeight: '600',
                   }}>
-                    Expected File Formats:
+                    {getLabel('import.expectedFormats')}:
                   </h4>
                   <div style={{
                     display: 'grid',
@@ -668,7 +746,7 @@ person,John,Doe,john@example.com`}
                     marginBottom: '1rem',
                   }}>
                     <div>
-                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>JSON:</strong>
+                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{getLabel('import.format.json')}</strong>
                       <pre style={{
                         margin: 0,
                         padding: '1rem',
@@ -704,7 +782,7 @@ person,John,Doe,john@example.com`}
 ]`}</pre>
                     </div>
                     <div>
-                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>CSV/Excel:</strong>
+                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{getLabel('import.format.csv')}</strong>
                       <pre style={{
                         margin: 0,
                         padding: '1rem',
@@ -726,8 +804,7 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                     color: 'var(--text-secondary)',
                     lineHeight: '1.5',
                   }}>
-                    <strong style={{ color: 'var(--text-primary)' }}>Note:</strong> Column names are flexible. The system will recognize variations like "First Name", "firstName", "first_name", etc. 
-                    For entities, you can include an "offline" field (true/false) to mark them as offline entities. WhatsApp is optional for all members.
+                    <strong style={{ color: 'var(--text-primary)' }}>{getLabel('import.format.note')}</strong> {getLabel('import.format.noteText')}
                   </p>
                 </div>
               </div>
@@ -775,100 +852,122 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
           </Card>
         )}
 
-        {/* Add Member Form */}
+        {/* Add/Edit Member Form */}
         {showForm && (
-          <Card style={{ marginBottom: '1.5rem', background: 'var(--bg-secondary)' }}>
+          <Card style={{ 
+            marginTop: '1.5rem', 
+            background: editingMemberId ? 'rgba(102, 126, 234, 0.05)' : 'var(--bg-secondary)',
+            border: editingMemberId ? '2px solid var(--primary-color)' : 'none',
+            transition: 'all 0.3s ease',
+          }}>
             <form onSubmit={handleSubmit}>
-              <div className="section-title" style={{ marginBottom: '1.5rem' }}>Add Member</div>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '1.5rem',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}>
+                <div className="section-title" style={{ marginBottom: 0 }}>
+                  {editingMemberId ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                      {getLabel('section.editMember')}
+                    </span>
+                  ) : (
+                    getLabel('section.addMember')
+                  )}
+                </div>
+                {editingMemberId && (
+                  <Badge variant="info">
+                    ID: {editingMemberId}
+                  </Badge>
+                )}
+              </div>
 
               {/* Member Type Selection */}
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
                   color: 'var(--text-primary)',
+                  fontWeight: '500',
+                  fontSize: '0.875rem'
                 }}>
-                  Member Type *
+                  {getLabel('form.memberType')}
                 </label>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '0.75rem', 
+                  flexWrap: 'wrap'
+                }}>
                   <button
                     type="button"
                     onClick={() => handleTypeChange('person')}
                     style={{
-                      flex: 1,
-                      minWidth: '150px',
-                      padding: '0.875rem 1.5rem',
+                      flex: '1',
+                      minWidth: '120px',
+                      padding: '0.75rem 1rem',
                       border: `2px solid ${memberType === 'person' ? 'var(--primary-color)' : 'var(--border-color)'}`,
                       borderRadius: 'var(--radius-md)',
-                      background: memberType === 'person' ? 'var(--primary-gradient)' : 'var(--bg-primary)',
-                      color: memberType === 'person' ? 'white' : 'var(--text-primary)',
+                      background: memberType === 'person' ? 'rgba(102, 126, 234, 0.1)' : 'var(--bg-primary)',
+                      color: memberType === 'person' ? 'var(--primary-color)' : 'var(--text-primary)',
                       cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      fontWeight: '600',
+                      fontWeight: memberType === 'person' ? '600' : '400',
+                      transition: 'all 0.2s ease',
                     }}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    Person
+                    {getLabel('memberType.person')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleTypeChange('entity')}
                     style={{
-                      flex: 1,
-                      minWidth: '150px',
-                      padding: '0.875rem 1.5rem',
+                      flex: '1',
+                      minWidth: '120px',
+                      padding: '0.75rem 1rem',
                       border: `2px solid ${memberType === 'entity' ? 'var(--primary-color)' : 'var(--border-color)'}`,
                       borderRadius: 'var(--radius-md)',
-                      background: memberType === 'entity' ? 'var(--primary-gradient)' : 'var(--bg-primary)',
-                      color: memberType === 'entity' ? 'white' : 'var(--text-primary)',
+                      background: memberType === 'entity' ? 'rgba(102, 126, 234, 0.1)' : 'var(--bg-primary)',
+                      color: memberType === 'entity' ? 'var(--primary-color)' : 'var(--text-primary)',
                       cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      fontWeight: '600',
+                      fontWeight: memberType === 'entity' ? '600' : '400',
+                      transition: 'all 0.2s ease',
                     }}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    Entity
+                    {getLabel('memberType.entity')}
                   </button>
                 </div>
               </div>
 
               {/* Person Fields */}
               {memberType === 'person' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                  gap: '1rem',
+                  marginBottom: '1rem'
+                }}>
                   <Input
                     type="text"
-                    label="First Name *"
+                    label={getLabel('form.firstName')}
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    placeholder="John"
+                    placeholder={getLabel('placeholder.firstName')}
                     required
                   />
                   <Input
                     type="text"
-                    label="Last Name *"
+                    label={getLabel('form.lastName')}
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    placeholder="Doe"
+                    placeholder={getLabel('placeholder.lastName')}
                     required
                   />
                 </div>
@@ -876,15 +975,15 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                 <>
                   <Input
                     type="text"
-                    label="Entity Name *"
+                    label={getLabel('form.name')}
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    placeholder="Company Name"
+                    placeholder={getLabel('placeholder.name')}
                     required
                     style={{ marginBottom: '1rem' }}
                   />
-                  <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ marginBottom: '1rem' }}>
                     <label style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -899,106 +998,64 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                         onChange={handleInputChange}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
-                      <span>Mark as Offline Entity</span>
+                      <span>{getLabel('form.offlineEntity')}</span>
                     </label>
-                    {formData.offline && (
-                      <small style={{ display: 'block', marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                        Tasks for offline entities will be updated by Crew Admin
-                      </small>
-                    )}
                   </div>
                 </>
               )}
 
               {/* Common Fields */}
-              <Input
-                type="text"
-                label="Specialized In"
-                name="specializedIn"
-                value={formData.specializedIn}
-                onChange={handleInputChange}
-                placeholder="e.g., Project Management, Logistics"
-                style={{ marginBottom: '1rem' }}
-              />
-
-              {/* Experience Field */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  color: 'var(--text-primary)',
-                }}>
-                  Experience (in years)
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <Input
-                    type="text"
-                    name="experience"
-                    value={formData.experience}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 5-10"
-                    style={{ flex: 1, minWidth: '200px', marginBottom: 0 }}
-                  />
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {experienceSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, experience: suggestion })}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--primary-color)';
-                          e.currentTarget.style.background = 'var(--bg-secondary)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--border-color)';
-                          e.currentTarget.style.background = 'var(--bg-primary)';
-                        }}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <Input
+                  type="text"
+                  label={getLabel('form.specializedIn')}
+                  name="specializedIn"
+                  value={formData.specializedIn}
+                  onChange={handleInputChange}
+                  placeholder={getLabel('placeholder.specializedIn')}
+                />
+                <Input
+                  type="text"
+                  label={getLabel('form.experience')}
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  placeholder={getLabel('placeholder.experience')}
+                  list="experience-suggestions"
+                />
               </div>
 
               <Input
-                type="textarea"
-                label="Address"
+                type="text"
+                label={getLabel('form.address')}
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
-                placeholder="Street address, City, State, ZIP"
+                placeholder={getLabel('placeholder.address')}
                 style={{ marginBottom: '1rem' }}
               />
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                 <Input
                   type="tel"
-                  label="Phone"
+                  label={getLabel('form.phone')}
                   name="phone"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  placeholder="+1 234 567 8900"
+                  placeholder={getLabel('placeholder.phone')}
                 />
                 <Input
                   type="tel"
-                  label="WhatsApp"
+                  label={getLabel('form.whatsapp')}
                   name="whatsapp"
                   value={formData.whatsapp}
                   onChange={handleInputChange}
-                  placeholder="+1 234 567 8900"
+                  placeholder={getLabel('placeholder.whatsapp')}
                   disabled={formData.usePhoneForWhatsApp}
                 />
               </div>
@@ -1018,44 +1075,44 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                     onChange={handleInputChange}
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
-                  <span>Use same number for WhatsApp</span>
+                  <span>{getLabel('form.usePhoneForWhatsApp')}</span>
                 </label>
               </div>
 
               <Input
                 type="email"
-                label="Email *"
+                label={getLabel('form.email')}
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                placeholder="email@example.com"
+                placeholder={getLabel('placeholder.email')}
                 required
                 style={{ marginBottom: '1.5rem' }}
               />
 
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                <Button type="submit">Add Member</Button>
+              <datalist id="experience-suggestions">
+                {experienceSuggestions.map((exp) => (
+                  <option key={exp} value={exp} />
+                ))}
+              </datalist>
+
+              <div style={{ 
+                display: 'flex', 
+                gap: '0.75rem', 
+                justifyContent: 'flex-end',
+                flexWrap: 'wrap'
+              }}>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting 
+                    ? (editingMemberId ? getLabel('button.updating') : getLabel('button.adding')) 
+                    : (editingMemberId ? getLabel('button.updateMember') : getLabel('button.addMember'))}
+                </Button>
                 <Button
                   variant="secondary"
                   type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setFormData({
-                      firstName: '',
-                      lastName: '',
-                      name: '',
-                      offline: false,
-                      specializedIn: '',
-                      experience: '',
-                      address: '',
-                      phone: '',
-                      whatsapp: '',
-                      usePhoneForWhatsApp: false,
-                      email: '',
-                    });
-                  }}
+                  onClick={handleCancelForm}
                 >
-                  Cancel
+                  {getLabel('button.cancel')}
                 </Button>
               </div>
             </form>
@@ -1068,46 +1125,87 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
         <Card style={{ marginTop: '1.5rem' }}>
           <EmptyState
             icon="👥"
-            title="No Core Members Yet"
-            description="Start by adding your first member or importing from a file"
-            actionLabel="Add Member"
-            onAction={() => setShowForm(true)}
+            title={getLabel('emptyState.noMembers.title')}
+            description={getLabel('emptyState.noMembers.description')}
+            actionLabel={getLabel('emptyState.noMembers.action')}
+            onAction={() => {
+              setShowForm(true);
+              setEditingMemberId(null);
+            }}
           />
         </Card>
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
           gap: '1.5rem',
           marginTop: '1.5rem',
         }}>
           {membersList.map((member) => (
-            <Card key={member.id} style={{ position: 'relative' }}>
+            <Card 
+              key={member.id} 
+              style={{ 
+                position: 'relative',
+                border: editingMemberId === member.id ? '2px solid var(--primary-color)' : 'none',
+                boxShadow: editingMemberId === member.id ? '0 0 0 3px rgba(102, 126, 234, 0.1)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {editingMemberId === member.id && (
+                <div style={{
+                  position: 'absolute',
+                  top: '0.5rem',
+                  right: '0.5rem',
+                  background: 'var(--primary-color)',
+                  color: 'white',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  zIndex: 10,
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  EDITING
+                </div>
+              )}
+              
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                 <Badge variant={member.type === 'person' ? 'primary' : 'success'}>
-                  {member.type === 'person' ? 'Person' : 'Entity'}
+                  {member.type === 'person' ? getLabel('badge.person') : getLabel('badge.entity')}
                 </Badge>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
                     onClick={() => handleEdit(member)}
+                    disabled={editingMemberId !== null && editingMemberId !== member.id}
                     style={{
                       padding: '0.5rem',
                       border: 'none',
                       background: 'transparent',
-                      cursor: 'pointer',
+                      cursor: (editingMemberId !== null && editingMemberId !== member.id) ? 'not-allowed' : 'pointer',
                       color: 'var(--text-secondary)',
                       borderRadius: 'var(--radius-sm)',
                       transition: 'all 0.2s ease',
+                      opacity: (editingMemberId !== null && editingMemberId !== member.id) ? 0.5 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-secondary)';
-                      e.currentTarget.style.color = 'var(--primary-color)';
+                      if (!(editingMemberId !== null && editingMemberId !== member.id)) {
+                        e.currentTarget.style.background = 'var(--bg-secondary)';
+                        e.currentTarget.style.color = 'var(--primary-color)';
+                      }
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent';
                       e.currentTarget.style.color = 'var(--text-secondary)';
                     }}
-                    title="Edit"
+                    title={(editingMemberId !== null && editingMemberId !== member.id) 
+                      ? getLabel('tooltip.cannotEditWhileEditing') 
+                      : getLabel('tooltip.edit')}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -1116,24 +1214,30 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                   </button>
                   <button
                     onClick={() => handleDelete(member.id)}
+                    disabled={isDeleting === member.id || editingMemberId === member.id}
                     style={{
                       padding: '0.5rem',
                       border: 'none',
                       background: 'transparent',
-                      cursor: 'pointer',
+                      cursor: (isDeleting === member.id || editingMemberId === member.id) ? 'not-allowed' : 'pointer',
                       color: 'var(--text-secondary)',
                       borderRadius: 'var(--radius-sm)',
                       transition: 'all 0.2s ease',
+                      opacity: (isDeleting === member.id || editingMemberId === member.id) ? 0.5 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                      e.currentTarget.style.color = 'var(--error)';
+                      if (!(isDeleting === member.id || editingMemberId === member.id)) {
+                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                        e.currentTarget.style.color = 'var(--error)';
+                      }
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent';
                       e.currentTarget.style.color = 'var(--text-secondary)';
                     }}
-                    title="Delete"
+                    title={(editingMemberId === member.id) 
+                      ? getLabel('tooltip.cannotDeleteWhileEditing') 
+                      : (isDeleting === member.id ? getLabel('button.deleting') : getLabel('tooltip.delete'))}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="3 6 5 6 21 6"></polyline>
@@ -1146,12 +1250,11 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
               <h3 style={{ 
                 margin: '0 0 1rem 0', 
                 color: 'var(--text-primary)',
-                fontSize: '1.25rem',
+                fontSize: 'clamp(1rem, 2.5vw, 1.25rem)',
                 fontWeight: '600',
+                wordBreak: 'break-word',
               }}>
-                {member.type === 'person'
-                  ? `${member.firstName} ${member.lastName}`
-                  : member.name}
+                {getMemberDisplayName(member)}
               </h3>
 
               {member.type === 'entity' && member.offline && (
@@ -1167,30 +1270,30 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
 
               {member.specializedIn && (
                 <p style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                  <strong>Specialized in:</strong> {member.specializedIn}
+                  <strong>{getLabel('member.specializedIn')}</strong> {member.specializedIn}
                 </p>
               )}
 
               {member.experience && (
                 <p style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                  <strong>Experience:</strong> {member.experience} years
+                  <strong>{getLabel('member.experience')}</strong> {member.experience}
                 </p>
               )}
 
               {member.type === 'entity' && member.offline && (
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.8125rem', fontStyle: 'italic' }}>
-                  Tasks will be updated by Crew Admin
+                  {getLabel('member.tasksUpdatedByAdmin')}
                 </p>
               )}
 
               <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {member.address && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginTop: '0.125rem', flexShrink: 0 }}>
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                       <circle cx="12" cy="10" r="3"></circle>
                     </svg>
-                    <span>{member.address}</span>
+                    <span style={{ wordBreak: 'break-word' }}>{member.address}</span>
                   </div>
                 )}
                 {member.phone && (
@@ -1198,7 +1301,7 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                     </svg>
-                    <span>{member.phone}</span>
+                    <span style={{ wordBreak: 'break-word' }}>{member.phone}</span>
                   </div>
                 )}
                 {member.whatsapp && (
@@ -1206,7 +1309,7 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
-                    <span>{member.whatsapp}</span>
+                    <span style={{ wordBreak: 'break-word' }}>{member.whatsapp}</span>
                   </div>
                 )}
                 {member.email && (
@@ -1215,7 +1318,7 @@ entity,,,Acme Corp,contact@acme.com,+1234567891,,Logistics,10-20,true`}</pre>
                       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                       <polyline points="22,6 12,13 2,6"></polyline>
                     </svg>
-                    <span>{member.email}</span>
+                    <span style={{ wordBreak: 'break-word' }}>{member.email}</span>
                   </div>
                 )}
               </div>

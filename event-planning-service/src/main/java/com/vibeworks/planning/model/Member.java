@@ -25,7 +25,7 @@ public class Member {
     private String type; // person or entity
     
     private String specializedIn;
-    private Integer experience;
+    private String experience; // Changed from Integer to String to support "5-10", "3-5" format
     
     private String address;
     private String phone;
@@ -34,7 +34,7 @@ public class Member {
     @Column(nullable = false)
     private String email;
     
-    private Boolean offlineEntity = false;
+    private Boolean offline = false; // Changed from offlineEntity to offline
     
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

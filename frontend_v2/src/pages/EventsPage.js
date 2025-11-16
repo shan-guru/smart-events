@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import '../themes/Theme1.css';
 import Header from '../components/ui/Header';
 import Menu from '../components/ui/Menu';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
 import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Tabs from '../components/ui/Tabs';
 import CreateEventForm from '../components/events/CreateEventForm';
 import Modal from '../components/ui/Modal';
+import ToastContainer from '../components/ui/ToastContainer';
+import eventService from '../services/eventService';
+import useToast from '../hooks/useToast';
+import { useLabels } from '../contexts/LabelsContext';
 
 function EventsPage({ navigate }) {
+  const { getLabel } = useLabels();
+  const { toasts, showSuccess, showError, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
+  const [showImport, setShowImport] = useState(false);
+  const [importMode, setImportMode] = useState('file'); // 'file' or 'paste'
+  const [pastedData, setPastedData] = useState('');
+  const [importError, setImportError] = useState(null);
+  const [importSuccess, setImportSuccess] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
   const userMenuItems = [
     {
       label: 'My Profile',
@@ -127,6 +143,95 @@ function EventsPage({ navigate }) {
     ));
     setIsEditModalOpen(false);
     setEditingEvent(null);
+  };
+
+  const handleFileImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportError(null);
+    setImportSuccess(null);
+    setIsImporting(true);
+
+    try {
+      const response = await eventService.importEvents(file);
+      
+      if (response.failed > 0 && response.errors && response.errors.length > 0) {
+        const errorMessages = response.errors.slice(0, 10).join('\n');
+        const warningMsg = getLabel('success.eventsImportedPartial')
+          .replace('{0}', response.failed)
+          .replace('{1}', response.successful) + `\n\nErrors:\n${errorMessages}${response.errors.length > 10 ? `\n... and ${response.errors.length - 10} more errors` : ''}`;
+        setImportError(warningMsg);
+      } else {
+        setImportSuccess(getLabel('success.eventsImported').replace('{0}', response.successful));
+      }
+      
+      // Refresh events list - you may want to fetch from backend here
+      // For now, we'll just close the import section
+      setShowImport(false);
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Import failed:', error);
+      setImportError(error.message || getLabel('error.importEventsFile'));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handlePasteImport = async () => {
+    if (!pastedData.trim()) {
+      setImportError(getLabel('validation.events.pasteDataRequired'));
+      return;
+    }
+
+    setImportError(null);
+    setImportSuccess(null);
+    setIsImporting(true);
+
+    try {
+      // Determine if it's JSON or CSV
+      let isJSON = false;
+      
+      try {
+        JSON.parse(pastedData);
+        isJSON = true;
+      } catch (e) {
+        isJSON = false;
+      }
+
+      // Create a blob and file from pasted data
+      const blob = new Blob([pastedData], { 
+        type: isJSON ? 'application/json' : 'text/csv' 
+      });
+      const file = new File([blob], `import.${isJSON ? 'json' : 'csv'}`, {
+        type: isJSON ? 'application/json' : 'text/csv'
+      });
+
+      // Use backend import API
+      const response = await eventService.importEvents(file);
+      
+      if (response.failed > 0 && response.errors && response.errors.length > 0) {
+        const errorMessages = response.errors.slice(0, 10).join('\n');
+        const warningMsg = getLabel('success.eventsImportedPartial')
+          .replace('{0}', response.failed)
+          .replace('{1}', response.successful) + `\n\nErrors:\n${errorMessages}${response.errors.length > 10 ? `\n... and ${response.errors.length - 10} more errors` : ''}`;
+        setImportError(warningMsg);
+      } else {
+        setImportSuccess(getLabel('success.eventsImported').replace('{0}', response.successful));
+      }
+      
+      // Refresh events list
+      setShowImport(false);
+      setPastedData('');
+    } catch (error) {
+      console.error('Import failed:', error);
+      setImportError(error.message || getLabel('error.importEventsPaste'));
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const getStatusBadge = (startDate, endDate, status) => {
@@ -286,7 +391,252 @@ function EventsPage({ navigate }) {
         {/* Tabs and Events Section */}
         <Card>
           <div style={{ marginBottom: '1.5rem' }}>
-            <div className="section-title">Events</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div className="section-title">Events</div>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowImport(!showImport);
+                    setImportMode('file');
+                    setImportError(null);
+                    setImportSuccess(null);
+                    setPastedData('');
+                    if (showImport && fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  {showImport ? getLabel('button.cancelImport') : getLabel('button.import')}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Import Section */}
+            {showImport && (
+              <Card style={{ marginBottom: '1.5rem', background: 'var(--bg-secondary)' }}>
+                <div className="section-title" style={{ marginBottom: '1rem' }}>{getLabel('section.importEvents')}</div>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  {getLabel('import.events.description')}
+                </p>
+
+                <Tabs
+                  tabs={[
+                    { id: 'file', label: getLabel('import.events.uploadFile') },
+                    { id: 'paste', label: getLabel('import.events.pasteData') },
+                  ]}
+                  activeTab={importMode}
+                  onTabChange={(tab) => {
+                    setImportMode(tab);
+                    setImportError(null);
+                    setImportSuccess(null);
+                    if (tab === 'file' && fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                    if (tab === 'paste') {
+                      setPastedData('');
+                    }
+                  }}
+                />
+
+                {importMode === 'file' ? (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json,.csv,.xlsx,.xls"
+                      onChange={handleFileImport}
+                      style={{ display: 'none' }}
+                      id="event-file-import-input"
+                    />
+                    <label
+                      htmlFor="event-file-import-input"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '3rem 2rem',
+                        border: '2px dashed var(--border-color)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: 'var(--bg-primary)',
+                        textAlign: 'center',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--primary-color)';
+                        e.currentTarget.style.background = 'var(--bg-secondary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.background = 'var(--bg-primary)';
+                      }}
+                    >
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--primary-color)', marginBottom: '1rem' }}>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <strong style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{getLabel('import.events.clickToUpload')}</strong>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{getLabel('import.events.fileTypes')}</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <Input
+                      type="textarea"
+                      label={getLabel('placeholder.pasteData')}
+                      placeholder={`Paste JSON data:
+[
+  {
+    "eventName": "Product Launch",
+    "eventInfo": "Annual product launch event",
+    "startDate": "2025-11-15",
+    "endDate": "2025-11-17",
+    "eventDate": "2025-11-16",
+    "status": "upcoming"
+  }
+]`}
+                      value={pastedData}
+                      onChange={(e) => setPastedData(e.target.value)}
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                      <Button
+                        onClick={handlePasteImport}
+                        disabled={!pastedData.trim() || isImporting}
+                      >
+                        {isImporting ? getLabel('button.importing') : getLabel('button.importPastedData')}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setPastedData('')}
+                      >
+                        {getLabel('button.clear')}
+                      </Button>
+                    </div>
+
+                    {/* Format Information */}
+                    <div style={{
+                      marginTop: '1.5rem',
+                      padding: '1.5rem',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-md)',
+                    }}>
+                      <h4 style={{
+                        margin: '0 0 1rem 0',
+                        color: 'var(--text-primary)',
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                      }}>
+                        {getLabel('import.events.expectedFormats')}:
+                      </h4>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: '1.5rem',
+                        marginBottom: '1rem',
+                      }}>
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{getLabel('import.events.format.json')}</strong>
+                          <pre style={{
+                            margin: 0,
+                            padding: '1rem',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)',
+                            overflow: 'auto',
+                            fontSize: '0.8125rem',
+                            color: 'var(--text-primary)',
+                            lineHeight: '1.5',
+                          }}>{`[
+  {
+    "eventName": "Product Launch",
+    "eventInfo": "Annual product launch",
+    "startDate": "2025-11-15",
+    "endDate": "2025-11-17",
+    "eventDate": "2025-11-16",
+    "status": "upcoming"
+  }
+]`}</pre>
+                        </div>
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>{getLabel('import.events.format.csv')}</strong>
+                          <pre style={{
+                            margin: 0,
+                            padding: '1rem',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)',
+                            overflow: 'auto',
+                            fontSize: '0.8125rem',
+                            color: 'var(--text-primary)',
+                            lineHeight: '1.5',
+                          }}>{`Event Name,Event Info,Start Date,End Date,Event Date,Status
+Product Launch,Annual product launch,2025-11-15,2025-11-17,2025-11-16,upcoming`}</pre>
+                        </div>
+                      </div>
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.875rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: '1.5',
+                      }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{getLabel('import.events.format.note')}</strong> {getLabel('import.events.format.noteText')}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {importError && (
+                  <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid var(--error)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--error)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{importError}</div>
+                  </div>
+                )}
+
+                {importSuccess && (
+                  <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1rem',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid var(--success)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--success)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <div>{importSuccess}</div>
+                  </div>
+                )}
+              </Card>
+            )}
+            
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
               <button
                 className={`tab ${activeTab === 'all' ? 'active' : ''}`}
@@ -499,6 +849,7 @@ function EventsPage({ navigate }) {
           </Modal>
         )}
       </div>
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

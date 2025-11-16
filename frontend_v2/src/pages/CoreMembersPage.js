@@ -1,70 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../themes/Theme1.css';
 import Header from '../components/ui/Header';
 import Menu from '../components/ui/Menu';
 import ExecutionMembers from '../components/members/ExecutionMembers';
+import ToastContainer from '../components/ui/ToastContainer';
+import memberService from '../services/memberService';
+import useToast from '../hooks/useToast';
+import { useLabels } from '../contexts/LabelsContext';
 
 function CoreMembersPage({ navigate }) {
-  const [members, setMembers] = useState([
-    {
-      id: 1,
-      type: "person",
-      firstName: "Aarav",
-      lastName: "Raman",
-      email: "aarav.raman@example.com",
-      phone: "+919876543210",
-      whatsapp: "+919876543210",
-      specializedIn: "Birthday Event Planning",
-      experience: "5-10",
-      address: "12 Gandhi Street, T. Nagar, Chennai"
-    },
-    {
-      id: 2,
-      type: "person",
-      firstName: "Meera",
-      lastName: "Sundaram",
-      email: "meera.sundaram@example.com",
-      phone: "+919884321567",
-      whatsapp: "+919884321567",
-      specializedIn: "Decoration & Theme Setup",
-      experience: "3-5",
-      address: "45 Lakshmi Nagar, Velachery, Chennai"
-    },
-    {
-      id: 3,
-      type: "entity",
-      name: "Celebrato Events",
-      email: "info@celebratoevents.com",
-      phone: "+914442223456",
-      specializedIn: "End-to-End Birthday Event Management",
-      experience: "10-20",
-      address: "78 Arcot Road, Kodambakkam, Chennai",
-      offline: true
-    },
-    {
-      id: 4,
-      type: "entity",
-      name: "HappyHive Planners",
-      email: "support@happyhive.in",
-      phone: "+914465552233",
-      specializedIn: "Kids Birthday Themes & Entertainment",
-      experience: "5-10",
-      address: "22 OMR Main Road, Sholinganallur, Chennai",
-      offline: false
-    },
-    {
-      id: 5,
-      type: "person",
-      firstName: "Karthik",
-      lastName: "Raj",
-      email: "karthik.raj@example.com",
-      phone: "+919902234455",
-      whatsapp: "+919902234455",
-      specializedIn: "Catering & Party Food Coordination",
-      experience: "10-15",
-      address: "9 Anna Salai, Mount Road, Chennai"
+  const { getLabel } = useLabels();
+  const { toasts, showSuccess, showError, removeToast } = useToast();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  const loadMembers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await memberService.getAllMembers();
+      setMembers(data || []);
+    } catch (err) {
+      console.error('Failed to load members:', err);
+      setError(err.message || 'Failed to load members');
+      showError('Failed to load members. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const handleMembersChange = () => {
+    // Reload members after any change
+    loadMembers();
+  };
 
   const userMenuItems = [
     {
@@ -106,8 +79,8 @@ function CoreMembersPage({ navigate }) {
     <div className="theme-1">
       <Header
         logo="https://via.placeholder.com/48x48/667eea/ffffff?text=EMS"
-        title="Core Members"
-        subtitle="Manage your execution members and team"
+        title={getLabel('page.coreMembers.title')}
+        subtitle={getLabel('page.coreMembers.subtitle')}
         userAvatar={
           <Menu
             trigger={
@@ -208,8 +181,32 @@ function CoreMembersPage({ navigate }) {
         ]}
       />
       <div className="app-container">
-        <ExecutionMembers members={members} setMembers={setMembers} />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem' }}>
+            <div style={{ fontSize: '1.125rem', color: 'var(--text-secondary)' }}>Loading members...</div>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '3rem' }}>
+            <div style={{ fontSize: '1.125rem', color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>
+            <button 
+              onClick={loadMembers}
+              className="button-primary"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <ExecutionMembers 
+            members={members} 
+            setMembers={setMembers}
+            onMembersChange={handleMembersChange}
+            loading={loading}
+            showSuccess={showSuccess}
+            showError={showError}
+          />
+        )}
       </div>
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

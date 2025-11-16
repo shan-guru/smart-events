@@ -46,5 +46,12 @@ public class EventController {
         Map response = eventService.generateTasks(request);
         return ResponseEntity.ok(response);
     }
+    
+    @PostMapping("/import")
+    public ResponseEntity<ImportEventsResponse> importEvents(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        ImportEventsResponse response = eventService.importEvents(file);
+        return ResponseEntity.ok(response);
+    }
 }
 

@@ -38,3 +38,14 @@ wheels/
 *.sqlite
 *.sqlite3
 
+# Build artifacts
+target/
+*.log
+*.pid
+
+# Notes and scratch files
+scratchpad.txt
+
+# Reference copies
+frontend_ref/
+
