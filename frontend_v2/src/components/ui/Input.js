@@ -10,12 +10,20 @@ const Input = ({
   error,
   required = false,
   className = '',
+  style,
   ...props
 }) => {
   const inputId = `input-${Math.random().toString(36).substr(2, 9)}`;
 
+  const containerStyle = {
+    marginBottom: '1.5rem',
+    width: '100%',
+    boxSizing: 'border-box',
+    ...(style?.marginBottom !== undefined ? { marginBottom: style.marginBottom } : {}),
+  };
+
   return (
-    <div style={{ marginBottom: '1.5rem' }}>
+    <div style={containerStyle}>
       {label && (
         <label
           htmlFor={inputId}
@@ -40,6 +48,7 @@ const Input = ({
           onChange={onChange}
           required={required}
           rows={4}
+          style={style}
           {...props}
         />
       ) : (
@@ -51,6 +60,7 @@ const Input = ({
           value={value}
           onChange={onChange}
           required={required}
+          style={style}
           {...props}
         />
       )}

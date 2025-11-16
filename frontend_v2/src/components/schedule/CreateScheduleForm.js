@@ -4,13 +4,13 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
-const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
+const CreateScheduleForm = ({ onSubmit, onCancel, initialData = {} }) => {
   const [formData, setFormData] = useState({
-    eventName: initialData.eventName || '',
-    eventInfo: initialData.eventInfo || '',
+    scheduleName: initialData.scheduleName || '',
+    scheduleInfo: initialData.scheduleInfo || '',
     startDate: initialData.startDate || '',
     endDate: initialData.endDate || '',
-    eventDate: initialData.eventDate || '',
+    scheduleDate: initialData.scheduleDate || '',
   });
 
   const [errors, setErrors] = useState({});
@@ -18,12 +18,12 @@ const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
   const validate = () => {
     const newErrors = {};
     
-    if (!formData.eventName.trim()) {
-      newErrors.eventName = 'Event name is required';
+    if (!formData.scheduleName.trim()) {
+      newErrors.scheduleName = 'Schedule name is required';
     }
     
-    if (!formData.eventInfo.trim()) {
-      newErrors.eventInfo = 'Event info is required';
+    if (!formData.scheduleInfo.trim()) {
+      newErrors.scheduleInfo = 'Schedule info is required';
     }
     
     if (!formData.startDate) {
@@ -62,25 +62,25 @@ const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
 
   return (
     <Card>
-      <div className="section-title">Event Details</div>
+      <div className="section-title">Schedule Details</div>
       <form onSubmit={handleSubmit}>
         <Input
           type="text"
-          label="Event Name"
-          placeholder="Enter event name"
-          value={formData.eventName}
-          onChange={(e) => handleChange('eventName', e.target.value)}
-          error={errors.eventName}
+          label="Schedule Name"
+          placeholder="Enter schedule name"
+          value={formData.scheduleName}
+          onChange={(e) => handleChange('scheduleName', e.target.value)}
+          error={errors.scheduleName}
           required
         />
 
         <Input
           type="textarea"
-          label="Event Info"
-          placeholder="Enter event description and details"
-          value={formData.eventInfo}
-          onChange={(e) => handleChange('eventInfo', e.target.value)}
-          error={errors.eventInfo}
+          label="Schedule Info"
+          placeholder="Enter schedule description and details"
+          value={formData.scheduleInfo}
+          onChange={(e) => handleChange('scheduleInfo', e.target.value)}
+          error={errors.scheduleInfo}
           required
         />
 
@@ -106,11 +106,11 @@ const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
 
         <Input
           type="date"
-          label="Event Date"
-          placeholder="Optional: Specific event date"
-          value={formData.eventDate}
-          onChange={(e) => handleChange('eventDate', e.target.value)}
-          error={errors.eventDate}
+          label="Schedule Date"
+          placeholder="Optional: Specific schedule date"
+          value={formData.scheduleDate}
+          onChange={(e) => handleChange('scheduleDate', e.target.value)}
+          error={errors.scheduleDate}
         />
 
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
@@ -120,7 +120,7 @@ const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
             </Button>
           )}
           <Button type="submit">
-            {initialData && initialData.id ? 'Update Event' : 'Create Event'}
+            {initialData && initialData.id ? 'Update Schedule' : 'Create Schedule'}
           </Button>
         </div>
       </form>
@@ -128,17 +128,17 @@ const CreateEventForm = ({ onSubmit, onCancel, initialData = {} }) => {
   );
 };
 
-CreateEventForm.propTypes = {
+CreateScheduleForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func,
   initialData: PropTypes.shape({
-    eventName: PropTypes.string,
-    eventInfo: PropTypes.string,
+    scheduleName: PropTypes.string,
+    scheduleInfo: PropTypes.string,
     startDate: PropTypes.string,
     endDate: PropTypes.string,
-    eventDate: PropTypes.string,
+    scheduleDate: PropTypes.string,
   }),
 };
 
-export default CreateEventForm;
+export default CreateScheduleForm;
 

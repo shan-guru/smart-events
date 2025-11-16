@@ -10,13 +10,19 @@ import Badge from '../components/ui/Badge';
 import Tabs from '../components/ui/Tabs';
 import EmptyState from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
+import ToastContainer from '../components/ui/ToastContainer';
+
+// Hooks
+import useToast from '../hooks/useToast';
 
 // Events Components
 import EventList from '../components/events/EventList';
 import CreateEventForm from '../components/events/CreateEventForm';
 import EventWizard from '../components/events/EventWizard';
+import ScheduleList from '../components/schedule/ScheduleList';
 
 function Playground() {
+  const { toasts, showSuccess, showError, showWarning, showInfo, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState('ui-components');
   const [modalOpen, setModalOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -34,6 +40,36 @@ function Playground() {
       endDate: '2025-12-22',
     },
   ]);
+  const [schedules, setSchedules] = useState([
+    {
+      id: 1,
+      taskTitle: 'Morning Meeting',
+      priority: 'high',
+      durationQuantity: '1',
+      durationUnit: 'hour',
+      owners: ['John Doe', 'Jane Smith'],
+      startDate: '2025-11-15',
+      startHour: '9',
+      startAMPM: 'AM',
+      endDate: '2025-11-15',
+      endHour: '10',
+      endAMPM: 'AM',
+    },
+    {
+      id: 2,
+      taskTitle: 'Team Standup',
+      priority: 'medium',
+      durationQuantity: '30',
+      durationUnit: 'minutes',
+      owners: ['Alice Johnson'],
+      startDate: '2025-12-20',
+      startHour: '10',
+      startAMPM: 'AM',
+      endDate: '2025-12-20',
+      endHour: '10',
+      endAMPM: 'AM',
+    },
+  ]);
   const [showWizard, setShowWizard] = useState(false);
 
   const uiTabs = [
@@ -45,6 +81,7 @@ function Playground() {
     { id: 'tabs', label: 'Tabs' },
     { id: 'empty-states', label: 'Empty States' },
     { id: 'stat-cards', label: 'Stat Cards' },
+    { id: 'notifications', label: 'Notifications' },
   ];
 
   const [activeUITab, setActiveUITab] = useState('buttons');
@@ -62,6 +99,14 @@ function Playground() {
     setEvents(events.filter(e => e.id !== event.id));
   };
 
+  const handleScheduleDelete = (schedule) => {
+    setSchedules(schedules.filter(s => s.id !== schedule.id));
+  };
+
+  const handleScheduleReorder = (reorderedSchedules) => {
+    setSchedules(reorderedSchedules);
+  };
+
   if (showWizard) {
     return (
       <EventWizard
@@ -73,6 +118,7 @@ function Playground() {
 
   return (
     <div className="theme-1">
+      <ToastContainer toasts={toasts} onClose={removeToast} />
       <div className="app-container">
         <div className="header">
           <h1>Component Playground</h1>
@@ -118,13 +164,13 @@ function Playground() {
                       <div className="section-title">Cards</div>
                       <div className="grid-layout" style={{ marginTop: '1rem' }}>
                         <Card>
-                          <h3 style={{ marginTop: 0 }}>Card Title</h3>
+                          <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Card Title</h3>
                           <p style={{ color: 'var(--text-secondary)' }}>
                             This is a sample card with some content. Cards have hover effects and shadows.
                           </p>
                         </Card>
                         <Card>
-                          <h3 style={{ marginTop: 0 }}>Another Card</h3>
+                          <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Another Card</h3>
                           <p style={{ color: 'var(--text-secondary)' }}>
                             Cards can contain any content and are great for organizing information.
                           </p>
@@ -234,7 +280,7 @@ function Playground() {
                             title="No Events Found"
                             description="There are no events to display at this time."
                             actionLabel="Create Event"
-                            onAction={() => alert('Create event clicked')}
+                            onAction={() => showInfo('Create event form will open.')}
                           />
                         </Card>
                       </div>
@@ -251,6 +297,107 @@ function Playground() {
                       </div>
                     </div>
                   )}
+
+                  {activeUITab === 'notifications' && (
+                    <div>
+                      <div className="section-title">Notifications / Toasts</div>
+                      <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                        Click the buttons below to see different types of notifications. Notifications automatically dismiss after 5 seconds, or you can close them manually.
+                      </p>
+                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                        <Button onClick={() => showSuccess('Event created successfully!')}>
+                          Show Success
+                        </Button>
+                        <Button onClick={() => showError('Failed to save event. Please try again.')}>
+                          Show Error
+                        </Button>
+                        <Button onClick={() => showWarning('Your session will expire in 5 minutes.')}>
+                          Show Warning
+                        </Button>
+                        <Button onClick={() => showInfo('New update available. Check the settings page.')}>
+                          Show Info
+                        </Button>
+                      </div>
+                      <div style={{ marginTop: '2rem' }}>
+                        <Card>
+                          <h3 style={{ marginTop: 0, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                            Sample Notifications
+                          </h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Success Notification:</strong>
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => showSuccess('Your changes have been saved successfully!')}
+                              >
+                                Save Changes
+                              </Button>
+                            </div>
+                            <div>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Error Notification:</strong>
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => showError('Unable to connect to server. Please check your internet connection.')}
+                              >
+                                Test Connection
+                              </Button>
+                            </div>
+                            <div>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Warning Notification:</strong>
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => showWarning('You have unsaved changes. Are you sure you want to leave?')}
+                              >
+                                Leave Page
+                              </Button>
+                            </div>
+                            <div>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Info Notification:</strong>
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => showInfo('Event "Product Launch" starts in 2 hours.')}
+                              >
+                                Check Event
+                              </Button>
+                            </div>
+                            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Multiple Notifications:</strong>
+                              </p>
+                              <Button 
+                                onClick={() => {
+                                  showSuccess('Task completed!');
+                                  setTimeout(() => showInfo('3 new tasks assigned to you.'), 500);
+                                  setTimeout(() => showWarning('Deadline approaching for "Team Standup"'), 1000);
+                                }}
+                              >
+                                Show Multiple
+                              </Button>
+                            </div>
+                            <div style={{ marginTop: '1rem' }}>
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                                <strong>Long Duration Notification:</strong>
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => showInfo('This notification will stay for 10 seconds.', 10000)}
+                              >
+                                Show Long Duration
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -262,7 +409,7 @@ function Playground() {
                 <div style={{ marginTop: '2rem' }}>
                   <Card>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      <h3 style={{ margin: 0 }}>Event Wizard</h3>
+                      <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Event Wizard</h3>
                       <Button onClick={() => setShowWizard(true)}>Open Event Wizard</Button>
                     </div>
                     <p style={{ color: 'var(--text-secondary)' }}>
@@ -279,18 +426,37 @@ function Playground() {
                         ...data,
                       };
                       setEvents([...events, newEvent]);
-                      alert('Event created! Check Event List below.');
+                      showSuccess('Event created successfully! Check Event List below.');
                     }}
-                    onCancel={() => alert('Form cancelled')}
+                    onCancel={() => showInfo('Event creation cancelled.')}
                   />
                 </div>
 
                 <div style={{ marginTop: '2rem' }}>
                   <EventList
                     events={events}
-                    onEdit={(event) => alert(`Edit event: ${event.eventName}`)}
-                    onDelete={handleEventDelete}
+                    onEdit={(event) => showInfo(`Editing event: ${event.eventName}`)}
+                    onDelete={(event) => {
+                      handleEventDelete(event);
+                      showSuccess(`Event "${event.eventName || event.name}" deleted successfully.`);
+                    }}
                     onCreateNew={() => setShowWizard(true)}
+                  />
+                </div>
+
+                <div style={{ marginTop: '2rem' }}>
+                  <ScheduleList
+                    schedules={schedules}
+                    onEdit={(schedule) => showInfo(`Editing schedule: ${schedule.taskTitle || schedule.scheduleName || schedule.name}`)}
+                    onDelete={(schedule) => {
+                      handleScheduleDelete(schedule);
+                      showSuccess('Schedule deleted successfully.');
+                    }}
+                    onCreateNew={() => showInfo('Create schedule form will open.')}
+                    onReorder={(newSchedules) => {
+                      handleScheduleReorder(newSchedules);
+                      showSuccess('Schedule order updated.');
+                    }}
                   />
                 </div>
               </div>

@@ -5,9 +5,15 @@ import './themes/Theme2.css';
 import './themes/Theme3.css';
 import EventManagement from './pages/EventManagement';
 import Playground from './pages/Playground';
+import EventsPage from './pages/EventsPage';
+import SchedulePage from './pages/SchedulePage';
+import CreateEventPage from './pages/CreateEventPage';
+import CoreMembersPage from './pages/CoreMembersPage';
+import TemplatesPage from './pages/TemplatesPage';
+import MyTasksPage from './pages/MyTasksPage';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('playground');
+  const [currentPage, setCurrentPage] = useState('events');
   const [selectedTheme, setSelectedTheme] = useState('theme-1');
 
   // Theme Selector Page
@@ -133,6 +139,20 @@ function App() {
               >
                 Go to Playground
               </button>
+              <button 
+                className="button-secondary"
+                style={{ marginLeft: '1rem' }}
+                onClick={() => setCurrentPage('events')}
+              >
+                Go to Events Page
+              </button>
+              <button 
+                className="button-secondary"
+                style={{ marginLeft: '1rem' }}
+                onClick={() => setCurrentPage('schedule')}
+              >
+                Go to Schedule Page
+              </button>
             </div>
           </div>
         </div>
@@ -140,13 +160,48 @@ function App() {
     );
   }
 
+  // Navigation helper
+  const navigate = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Events Page (Home/Landing Page)
+  if (currentPage === 'events') {
+    return <EventsPage navigate={navigate} />;
+  }
+
   // Playground Page
   if (currentPage === 'playground') {
     return <Playground />;
   }
 
+  // Schedule Page
+  if (currentPage === 'schedule') {
+    return <SchedulePage />;
+  }
+
+  // Create Event Page
+  if (currentPage === 'create-event') {
+    return <CreateEventPage navigate={navigate} />;
+  }
+
+  // Core Members Page
+  if (currentPage === 'core-members') {
+    return <CoreMembersPage navigate={navigate} />;
+  }
+
+  // Templates Page
+  if (currentPage === 'templates') {
+    return <TemplatesPage navigate={navigate} />;
+  }
+
+  // My Tasks Page
+  if (currentPage === 'my-tasks') {
+    return <MyTasksPage navigate={navigate} />;
+  }
+
   // Event Management Page (Main Application)
-  return <EventManagement />;
+  return <EventManagement navigate={navigate} />;
 }
 
 export default App;

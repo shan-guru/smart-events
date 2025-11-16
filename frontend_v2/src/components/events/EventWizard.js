@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import CreateEventForm from './CreateEventForm';
+import ScheduleTable from './ScheduleTable';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -17,6 +18,61 @@ const EventWizard = ({ onComplete, onCancel }) => {
     eventDate: '',
   });
 
+  const [scheduledTasks, setScheduledTasks] = useState([
+    {
+      taskTitle: 'Setup Event Venue',
+      priority: 'high',
+      durationQuantity: '4',
+      durationUnit: 'hours',
+      owners: ['John Doe', 'Jane Smith'],
+      startDate: '2025-11-20',
+      startHour: '9',
+      startAMPM: 'AM',
+      endDate: '2025-11-20',
+      endHour: '1',
+      endAMPM: 'PM',
+    },
+    {
+      taskTitle: 'Prepare Presentation Materials',
+      priority: 'medium',
+      durationQuantity: '6',
+      durationUnit: 'hours',
+      owners: ['Alice Johnson'],
+      startDate: '2025-11-19',
+      startHour: '10',
+      startAMPM: 'AM',
+      endDate: '2025-11-19',
+      endHour: '4',
+      endAMPM: 'PM',
+    },
+    {
+      taskTitle: 'Coordinate with Vendors',
+      priority: 'high',
+      durationQuantity: '2',
+      durationUnit: 'days',
+      owners: ['Bob Lee', 'Charlie Kim', 'Diana Prince'],
+      startDate: '2025-11-18',
+      startHour: '8',
+      startAMPM: 'AM',
+      endDate: '2025-11-19',
+      endHour: '5',
+      endAMPM: 'PM',
+    },
+    {
+      taskTitle: 'Final Review Meeting',
+      priority: 'low',
+      durationQuantity: '2',
+      durationUnit: 'hours',
+      owners: ['Eve Adams'],
+      startDate: '2025-11-21',
+      startHour: '2',
+      startAMPM: 'PM',
+      endDate: '2025-11-21',
+      endHour: '4',
+      endAMPM: 'PM',
+    },
+  ]);
+
   const steps = [
     { id: 1, title: 'Event Details', icon: '📋' },
     { id: 2, title: 'Add Tasks', icon: '✅' },
@@ -26,9 +82,8 @@ const EventWizard = ({ onComplete, onCancel }) => {
   ];
 
   const handleStepClick = (stepId) => {
-    if (stepId <= currentStep || completedSteps.includes(stepId - 1)) {
-      setCurrentStep(stepId);
-    }
+    // Allow navigation to any step
+    setCurrentStep(stepId);
   };
 
   const handleNext = () => {
@@ -96,12 +151,10 @@ const EventWizard = ({ onComplete, onCancel }) => {
         );
       case 4:
         return (
-          <Card>
-            <div className="section-title">Arrive Schedule</div>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Schedule management will be implemented here
-            </p>
-          </Card>
+          <ScheduleTable
+            tasks={scheduledTasks}
+            onUpdateTasks={setScheduledTasks}
+          />
         );
       case 5:
         return (
@@ -111,11 +164,11 @@ const EventWizard = ({ onComplete, onCancel }) => {
               Review and finalize your event plan
             </p>
             <div style={{ marginTop: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Event Summary</h3>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Event Summary</h3>
               <div style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
-                <p><strong>Event Name:</strong> {eventDetails.eventName || 'N/A'}</p>
-                <p><strong>Start Date:</strong> {eventDetails.startDate || 'N/A'}</p>
-                <p><strong>End Date:</strong> {eventDetails.endDate || 'N/A'}</p>
+                <p style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}><strong>Event Name:</strong> {eventDetails.eventName || 'N/A'}</p>
+                <p style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}><strong>Start Date:</strong> {eventDetails.startDate || 'N/A'}</p>
+                <p style={{ color: 'var(--text-primary)' }}><strong>End Date:</strong> {eventDetails.endDate || 'N/A'}</p>
               </div>
             </div>
           </Card>
@@ -157,7 +210,7 @@ const EventWizard = ({ onComplete, onCancel }) => {
                       alignItems: 'center',
                       flex: 1,
                       position: 'relative',
-                      cursor: step.id <= currentStep ? 'pointer' : 'not-allowed',
+                      cursor: 'pointer',
                     }}
                     onClick={() => handleStepClick(step.id)}
                   >

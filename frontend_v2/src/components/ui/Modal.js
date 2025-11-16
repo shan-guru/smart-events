@@ -31,7 +31,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, className = '' }) => 
             </svg>
           </button>
         </div>
-        <div className="modal-body">
+        <div className="modal-body" style={{ width: '100%', boxSizing: 'border-box' }}>
           {children}
         </div>
         {footer && (

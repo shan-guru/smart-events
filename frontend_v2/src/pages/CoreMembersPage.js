@@ -1,9 +1,71 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../themes/Theme1.css';
 import Header from '../components/ui/Header';
 import Menu from '../components/ui/Menu';
+import ExecutionMembers from '../components/members/ExecutionMembers';
 
-function EventManagement({ navigate }) {
+function CoreMembersPage({ navigate }) {
+  const [members, setMembers] = useState([
+    {
+      id: 1,
+      type: "person",
+      firstName: "Aarav",
+      lastName: "Raman",
+      email: "aarav.raman@example.com",
+      phone: "+919876543210",
+      whatsapp: "+919876543210",
+      specializedIn: "Birthday Event Planning",
+      experience: "5-10",
+      address: "12 Gandhi Street, T. Nagar, Chennai"
+    },
+    {
+      id: 2,
+      type: "person",
+      firstName: "Meera",
+      lastName: "Sundaram",
+      email: "meera.sundaram@example.com",
+      phone: "+919884321567",
+      whatsapp: "+919884321567",
+      specializedIn: "Decoration & Theme Setup",
+      experience: "3-5",
+      address: "45 Lakshmi Nagar, Velachery, Chennai"
+    },
+    {
+      id: 3,
+      type: "entity",
+      name: "Celebrato Events",
+      email: "info@celebratoevents.com",
+      phone: "+914442223456",
+      specializedIn: "End-to-End Birthday Event Management",
+      experience: "10-20",
+      address: "78 Arcot Road, Kodambakkam, Chennai",
+      offline: true
+    },
+    {
+      id: 4,
+      type: "entity",
+      name: "HappyHive Planners",
+      email: "support@happyhive.in",
+      phone: "+914465552233",
+      specializedIn: "Kids Birthday Themes & Entertainment",
+      experience: "5-10",
+      address: "22 OMR Main Road, Sholinganallur, Chennai",
+      offline: false
+    },
+    {
+      id: 5,
+      type: "person",
+      firstName: "Karthik",
+      lastName: "Raj",
+      email: "karthik.raj@example.com",
+      phone: "+919902234455",
+      whatsapp: "+919902234455",
+      specializedIn: "Catering & Party Food Coordination",
+      experience: "10-15",
+      address: "9 Anna Salai, Mount Road, Chennai"
+    }
+  ]);
+
   const userMenuItems = [
     {
       label: 'My Profile',
@@ -44,8 +106,8 @@ function EventManagement({ navigate }) {
     <div className="theme-1">
       <Header
         logo="https://via.placeholder.com/48x48/667eea/ffffff?text=EMS"
-        title="Event Management System"
-        subtitle="Manage your events, tasks, and team members efficiently"
+        title="Core Members"
+        subtitle="Manage your execution members and team"
         userAvatar={
           <Menu
             trigger={
@@ -146,63 +208,11 @@ function EventManagement({ navigate }) {
         ]}
       />
       <div className="app-container">
-
-        {/* Main Content Area - Ready for Components */}
-        <div className="grid-layout" style={{ marginBottom: '2rem' }}>
-          {/* Stats Section */}
-          <div className="stat-card">
-            <div className="stat-label">Total Events</div>
-            <div className="stat-value">0</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Active Tasks</div>
-            <div className="stat-value">0</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Team Members</div>
-            <div className="stat-value">0</div>
-          </div>
-        </div>
-
-        {/* Content Sections - Ready for Components */}
-        <div className="card" style={{ marginBottom: '2rem' }}>
-          <div className="section-title">Events</div>
-          <div className="empty-state">
-            <div className="empty-state-icon">📅</div>
-            <div className="empty-state-title">No Events Yet</div>
-            <div className="empty-state-description">
-              Start by creating your first event
-            </div>
-            <button className="button-primary">Create Event</button>
-          </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: '2rem' }}>
-          <div className="section-title">Tasks</div>
-          <div className="empty-state">
-            <div className="empty-state-icon">✅</div>
-            <div className="empty-state-title">No Tasks Yet</div>
-            <div className="empty-state-description">
-              Tasks will appear here once you create an event
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="section-title">Team Members</div>
-          <div className="empty-state">
-            <div className="empty-state-icon">👥</div>
-            <div className="empty-state-title">No Members Yet</div>
-            <div className="empty-state-description">
-              Add team members to get started
-            </div>
-            <button className="button-primary">Add Member</button>
-          </div>
-        </div>
+        <ExecutionMembers members={members} setMembers={setMembers} />
       </div>
     </div>
   );
 }
 
-export default EventManagement;
+export default CoreMembersPage;
 

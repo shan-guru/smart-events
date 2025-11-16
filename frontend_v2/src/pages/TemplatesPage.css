@@ -1,0 +1,56 @@
+/* Templates Page Styles */
+
+/* Custom Scrollbar for Webkit browsers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* Responsive Grid for Tasks Table */
+@media (max-width: 968px) {
+  .templates-task-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+  
+  .templates-task-header {
+    display: none !important;
+  }
+  
+  .templates-task-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    padding: 1rem !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-sm) !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .templates-task-row:last-child {
+    margin-bottom: 0 !important;
+  }
+  
+  .templates-task-label {
+    display: inline-block !important;
+    font-weight: 600 !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+    margin-right: 0.5rem !important;
+  }
+}
+

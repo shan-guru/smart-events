@@ -39,6 +39,24 @@
   background: var(--primary-gradient);
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text-primary);
+}
+
+.theme-1 h1,
+.theme-1 h2,
+.theme-1 h3,
+.theme-1 h4,
+.theme-1 h5,
+.theme-1 h6 {
+  color: var(--text-primary);
+}
+
+.theme-1 p {
+  color: var(--text-primary);
+}
+
+.theme-1 label {
+  color: var(--text-primary);
 }
 
 .theme-1 .app-container {
@@ -123,12 +141,19 @@
   font-size: 1rem;
   transition: all 0.3s ease;
   background: var(--bg-primary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.theme-1 .input-field::placeholder {
+  color: var(--text-light);
 }
 
 .theme-1 .input-field:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  color: var(--text-primary);
 }
 
 .theme-1 .badge {
@@ -230,10 +255,15 @@
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
   transition: background 0.2s ease;
+  color: var(--text-primary);
 }
 
 .theme-1 .table-row:hover {
   background: var(--bg-secondary);
+}
+
+.theme-1 .table-row > div {
+  color: var(--text-primary);
 }
 
 .theme-1 .modal-overlay {
@@ -251,11 +281,32 @@
   background: var(--bg-primary);
   border-radius: var(--radius-xl);
   padding: 2rem;
-  max-width: 600px;
+  max-width: 550px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .theme-1 .modal-content {
+    width: 95%;
+    max-width: 95%;
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-1 .modal-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    margin: 0;
+    border-radius: var(--radius-lg);
+    max-height: 100vh;
+  }
 }
 
 .theme-1 .modal-header {
@@ -267,6 +318,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.theme-1 .modal-body {
+  color: var(--text-primary);
+  padding: 0;
 }
 
 .theme-1 .icon-button {

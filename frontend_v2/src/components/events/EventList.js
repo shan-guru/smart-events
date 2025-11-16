@@ -5,7 +5,7 @@ import Badge from '../ui/Badge';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
 
-const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
+const EventList = ({ events = [], onEdit, onDelete, onCreateNew, navigate }) => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -28,6 +28,14 @@ const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
     return <Badge variant="primary">Completed</Badge>;
   };
 
+  const handleCreateNew = () => {
+    if (navigate) {
+      navigate('create-event');
+    } else if (onCreateNew) {
+      onCreateNew();
+    }
+  };
+
   if (events.length === 0) {
     return (
       <Card>
@@ -37,7 +45,7 @@ const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
           title="No Events Yet"
           description="Start by creating your first event"
           actionLabel="Create Event"
-          onAction={onCreateNew}
+          onAction={handleCreateNew}
         />
       </Card>
     );
@@ -47,7 +55,7 @@ const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div className="section-title">Events</div>
-        <Button onClick={onCreateNew}>Create Event</Button>
+        <Button onClick={handleCreateNew}>+ Add Event</Button>
       </div>
 
       <div className="table-container">
@@ -55,6 +63,7 @@ const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
           <div>Event Name</div>
           <div>Start Date</div>
           <div>End Date</div>
+          <div>Event Date</div>
           <div>Status</div>
           <div>Actions</div>
         </div>
@@ -63,8 +72,9 @@ const EventList = ({ events = [], onEdit, onDelete, onCreateNew }) => {
             <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
               {event.eventName || event.name || 'Unnamed Event'}
             </div>
-            <div>{formatDate(event.startDate)}</div>
-            <div>{formatDate(event.endDate)}</div>
+            <div style={{ color: 'var(--text-primary)' }}>{formatDate(event.startDate)}</div>
+            <div style={{ color: 'var(--text-primary)' }}>{formatDate(event.endDate)}</div>
+            <div style={{ color: 'var(--text-primary)' }}>{formatDate(event.eventDate)}</div>
             <div>{getStatusBadge(event.startDate, event.endDate)}</div>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
               <button
@@ -105,11 +115,13 @@ EventList.propTypes = {
       name: PropTypes.string,
       startDate: PropTypes.string,
       endDate: PropTypes.string,
+      eventDate: PropTypes.string,
     })
   ),
   onEdit: PropTypes.func,
   onDelete: PropTypes.func,
   onCreateNew: PropTypes.func,
+  navigate: PropTypes.func,
 };
 
 export default EventList;
